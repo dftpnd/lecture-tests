@@ -1,3 +1,14 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: lecture-tests-models
+  labels: {{- include "lt.labels" . | nindent 4 }}
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: {{ .Values.worker.modelsStorage }}
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -24,3 +35,9 @@ spec:
               # With GPU time-slicing enabled, this 1 unit is a time-slice of the
               # shared physical GPU (vLLM holds another slice).
               nvidia.com/gpu: {{ .Values.worker.gpu }}
+          volumeMounts:
+            - { name: models, mountPath: /models }
+      volumes:
+        - name: models
+          persistentVolumeClaim:
+            claimName: lecture-tests-models

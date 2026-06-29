@@ -29,7 +29,9 @@
 cp .env.example .env          # при необходимости поправь VLLM_BASE_URL
 docker compose up -d postgres redis minio createbuckets
 # бэкенд
-cd backend && pip install -e . && uvicorn app.main:app --reload
+cd backend && pip install -e .
+alembic upgrade head          # или оставь AUTO_CREATE_TABLES=true для dev
+uvicorn app.main:app --reload
 # воркер (нужен GPU + ffmpeg)
 arq app.worker.WorkerSettings
 # фронт
@@ -78,6 +80,6 @@ helm/gpu-time-slicing/    конфиг шаринга GPU между worker и v
 
 ## Статус
 
-Скелет + UI прохождения теста + Helm-чарт и GPU time-slicing.
-Дальше: миграции Alembic, кэш моделей Whisper (PVC), production-секреты.
+Скелет + UI теста + Helm-чарт + GPU time-slicing + Alembic-миграции + PVC под кэш Whisper.
+Дальше: production-секреты (sealed secrets), сборка образов и первый деплой.
 ```

@@ -45,6 +45,8 @@ worker:
   # With time-slicing enabled the single physical GPU advertises several
   # nvidia.com/gpu units, so worker and vLLM can each request 1.
   gpu: 1
+  # Persistent cache for the Whisper model (avoids re-download on restart).
+  modelsStorage: 20Gi
 
 frontend:
   service:

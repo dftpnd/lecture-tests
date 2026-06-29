@@ -27,6 +27,11 @@ class Settings(BaseSettings):
     whisper_device: str = "cuda"
     whisper_compute_type: str = "float16"
     whisper_language: str = "ru"
+    # Persisted cache so large-v3 isn't re-downloaded on every restart.
+    whisper_download_root: str | None = None
+
+    # Dev convenience: create tables on startup. Disable in prod (use Alembic).
+    auto_create_tables: bool = True
 
 
 settings = Settings()

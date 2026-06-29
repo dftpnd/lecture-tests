@@ -28,6 +28,7 @@ def _get_whisper():
             settings.whisper_model,
             device=settings.whisper_device,
             compute_type=settings.whisper_compute_type,
+            download_root=settings.whisper_download_root or None,
         )
     return _whisper_model
 

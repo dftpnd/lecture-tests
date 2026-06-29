@@ -15,6 +15,9 @@ data:
   WHISPER_DEVICE: {{ .Values.whisper.device | quote }}
   WHISPER_COMPUTE_TYPE: {{ .Values.whisper.computeType | quote }}
   WHISPER_LANGUAGE: {{ .Values.whisper.language | quote }}
+  WHISPER_DOWNLOAD_ROOT: "/models"
+  # Prod uses Alembic (migration init-container), not create_all.
+  AUTO_CREATE_TABLES: "false"
 ---
 apiVersion: v1
 kind: Secret

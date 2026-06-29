@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.config import settings
 from app.db import Base, engine
 from app.routers import attempts, lectures, quiz, users
 from app.storage import ensure_bucket
@@ -10,9 +11,10 @@ from app.storage import ensure_bucket
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Dev convenience: create tables + bucket on startup. Use Alembic in prod.
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    # Dev convenience only — prod runs Alembic migrations (auto_create_tables=false).
+    if settings.auto_create_tables:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
     ensure_bucket()
     yield
 
