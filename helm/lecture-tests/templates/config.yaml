@@ -18,7 +18,11 @@ data:
   WHISPER_DOWNLOAD_ROOT: "/models"
   # Prod uses Alembic (migration init-container), not create_all.
   AUTO_CREATE_TABLES: "false"
+{{- if .Values.secret.create }}
 ---
+# Plain Secret rendered by the chart (dev / simple setups).
+# For prod set `secret.create=false` and apply a SealedSecret named
+# `lecture-tests-secret` instead (see helm/sealed-secrets/).
 apiVersion: v1
 kind: Secret
 metadata:
@@ -29,3 +33,4 @@ stringData:
   DATABASE_URL: {{ include "lt.databaseUrl" . | quote }}
   MINIO_ACCESS_KEY: {{ .Values.minio.accessKey | quote }}
   MINIO_SECRET_KEY: {{ .Values.minio.secretKey | quote }}
+{{- end }}

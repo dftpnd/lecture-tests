@@ -30,10 +30,15 @@ postgres:
 redis:
   image: redis:7-alpine
 
+# Set create=false in prod and manage `lecture-tests-secret` via a SealedSecret
+# (see helm/sealed-secrets/). When false, the keys below are NOT used for the Secret.
+secret:
+  create: true
+
 minio:
   image: minio/minio:latest
   accessKey: minioadmin
-  secretKey: minioadmin       # override in prod
+  secretKey: minioadmin       # override in prod (or use a SealedSecret)
   bucket: lectures
   storage: 50Gi
   # Browser-reachable address for presigned upload/download URLs.

@@ -13,6 +13,8 @@ frontend/dist/
 
 # Env / secrets
 .env
+# Plaintext sealed-secret input — never commit (only sealed-secret.yaml is safe)
+secret.plain.yaml
 
 # Data / media
 data/

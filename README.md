@@ -47,15 +47,22 @@ API: http://localhost:8000/docs · Фронт: http://localhost:5173 · MinIO-к
 kubectl apply -f helm/gpu-time-slicing/time-slicing-config.yaml
 #    затем подключить конфиг к device plugin (см. helm/gpu-time-slicing/README.md)
 
-# 2. собрать и запушить образы
-docker build -t lecture-tests-api ./backend
-docker build -t lecture-tests-frontend ./frontend
+# 2. собрать образы (см. флаги REGISTRY / IMPORT / TAG в скрипте)
+IMPORT=k3s ./scripts/build.sh           # single-node k3s: build + импорт в containerd
 
-# 3. установить чарт
+# 3. (прод) секреты через sealed-secrets — см. helm/sealed-secrets/README.md
+#    dev можно пропустить: чарт сам создаст Secret из values
+
+# 4. установить чарт
 helm install lt helm/lecture-tests \
   --set minio.publicEndpoint=192.168.1.116:30900 \
   --set vllm.baseUrl=http://192.168.1.116:30800/v1
+#   прод: добавь --set secret.create=false (Secret придёт из SealedSecret)
 ```
+
+Секреты (`DATABASE_URL`, ключи MinIO) в проде держим в `SealedSecret`
+(`helm/sealed-secrets/`): `secret.plain.yaml` → `seal.sh` → `sealed-secret.yaml`
+(коммитить можно только sealed-версию).
 
 Фронт — NodePort `30080`, MinIO — NodePort `30900` (его адрес должен совпадать с
 `minio.publicEndpoint`, т.к. браузер ходит туда по presigned URL). vLLM не
@@ -80,6 +87,7 @@ helm/gpu-time-slicing/    конфиг шаринга GPU между worker и v
 
 ## Статус
 
-Скелет + UI теста + Helm-чарт + GPU time-slicing + Alembic-миграции + PVC под кэш Whisper.
-Дальше: production-секреты (sealed secrets), сборка образов и первый деплой.
+Реализован весь скелет: UI теста, Helm-чарт, GPU time-slicing, Alembic-миграции,
+PVC под кэш Whisper, sealed-secrets, скрипт сборки образов.
+Дальше: собрать образы и сделать первый деплой в кластер (на машине с доступом к mg-ultra).
 ```
