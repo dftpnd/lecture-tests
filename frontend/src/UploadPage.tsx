@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   AppShell,
   Badge,
@@ -5,6 +6,7 @@ import {
   Card,
   Container,
   Group,
+  Progress,
   Stack,
   Text,
   Title,
@@ -19,16 +21,23 @@ const statusColor = (s: string) => (s === "done" ? "green" : s === "failed" ? "r
 
 export function UploadPage() {
   const { lectures, refresh } = useLectures();
+  const [uploading, setUploading] = useState(false);
+  const [pct, setPct] = useState(0);
+  const [currentFile, setCurrentFile] = useState("");
 
   async function handleDrop(files: File[]) {
     const file = files[0];
-    notifications.show({ message: `Загружаю «${file.name}»…`, color: "blue" });
+    setCurrentFile(file.name);
+    setPct(0);
+    setUploading(true);
     try {
-      await api.upload(file, file.name.replace(/\.[^.]+$/, ""));
-      notifications.show({ message: "Видео загружено, идёт обработка", color: "green" });
+      await api.upload(file, file.name.replace(/\.[^.]+$/, ""), setPct);
+      notifications.show({ message: "Видео загружено, началась обработка", color: "green" });
       refresh();
     } catch (e) {
       notifications.show({ message: `Ошибка загрузки: ${e}`, color: "red" });
+    } finally {
+      setUploading(false);
     }
   }
 
@@ -50,11 +59,25 @@ export function UploadPage() {
               onDrop={handleDrop}
               accept={[MIME_TYPES.mp4, "video/x-matroska", "video/*"]}
               maxFiles={1}
+              loading={uploading}
+              disabled={uploading}
             >
               <Text ta="center" py="xl">
                 Перетащите видео лекции сюда или кликните для выбора
               </Text>
             </Dropzone>
+
+            {uploading && (
+              <Card withBorder>
+                <Text size="sm" mb="xs">
+                  Загрузка «{currentFile}» — {pct}%
+                </Text>
+                <Progress value={pct} animated />
+                <Text size="xs" c="dimmed" mt="xs">
+                  Не закрывайте вкладку до завершения загрузки
+                </Text>
+              </Card>
+            )}
 
             <Title order={3}>Загруженные лекции</Title>
             {lectures.length === 0 && <Text c="dimmed">Пока ничего не загружено</Text>}

@@ -28,6 +28,24 @@ async function json<T>(r: Response): Promise<T> {
   return r.json();
 }
 
+// PUT a (possibly large) file with upload-progress reporting. fetch() can't
+// report upload progress, so we use XHR. Rejects on non-2xx / network error.
+function putWithProgress(url: string, file: File, onProgress: (pct: number) => void): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("PUT", url);
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+    };
+    xhr.onload = () =>
+      xhr.status >= 200 && xhr.status < 300
+        ? resolve()
+        : reject(new Error(`загрузка в хранилище не удалась: HTTP ${xhr.status}`));
+    xhr.onerror = () => reject(new Error("сетевая ошибка при загрузке в хранилище"));
+    xhr.send(file);
+  });
+}
+
 export const api = {
   login: (name: string) =>
     fetch(`${BASE}/users`, {
@@ -36,13 +54,13 @@ export const api = {
       body: JSON.stringify({ name }),
     }).then(json),
 
-  // 1. get presigned URL  2. PUT video to MinIO  3. register lecture
-  async upload(file: File, title: string): Promise<Lecture> {
+  // 1. get presigned URL  2. PUT video to MinIO (with progress)  3. register lecture
+  async upload(file: File, title: string, onProgress?: (pct: number) => void): Promise<Lecture> {
     const { upload_url, object_key } = await fetch(
       `${BASE}/lectures/upload-url?filename=${encodeURIComponent(file.name)}`,
     ).then((r) => json<{ upload_url: string; object_key: string }>(r));
 
-    await fetch(upload_url, { method: "PUT", body: file });
+    await putWithProgress(upload_url, file, onProgress ?? (() => {}));
 
     return fetch(`${BASE}/lectures`, {
       method: "POST",
