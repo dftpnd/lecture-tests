@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lecture-tests-worker
+  labels: {{- include "lt.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.worker.replicas }}
+  selector:
+    matchLabels: { app: lecture-tests-worker }
+  template:
+    metadata:
+      labels: { app: lecture-tests-worker }
+    spec:
+      containers:
+        - name: worker
+          image: "{{ .Values.images.api.repository }}:{{ .Values.images.api.tag }}"
+          imagePullPolicy: {{ .Values.images.api.pullPolicy }}
+          command: ["arq", "app.worker.WorkerSettings"]
+          envFrom:
+            - configMapRef: { name: lecture-tests-config }
+            - secretRef: { name: lecture-tests-secret }
+          resources:
+            limits:
+              # With GPU time-slicing enabled, this 1 unit is a time-slice of the
+              # shared physical GPU (vLLM holds another slice).
+              nvidia.com/gpu: {{ .Values.worker.gpu }}

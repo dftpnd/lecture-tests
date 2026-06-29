@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lecture-tests-api
+  labels: {{- include "lt.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: lecture-tests-api }
+  template:
+    metadata:
+      labels: { app: lecture-tests-api }
+    spec:
+      containers:
+        - name: api
+          image: "{{ .Values.images.api.repository }}:{{ .Values.images.api.tag }}"
+          imagePullPolicy: {{ .Values.images.api.pullPolicy }}
+          command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+          envFrom:
+            - configMapRef: { name: lecture-tests-config }
+            - secretRef: { name: lecture-tests-secret }
+          ports: [{ containerPort: 8000 }]
+          readinessProbe:
+            httpGet: { path: /health, port: 8000 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lecture-tests-api
+  labels: {{- include "lt.labels" . | nindent 4 }}
+spec:
+  selector: { app: lecture-tests-api }
+  ports: [{ port: 8000, targetPort: 8000 }]

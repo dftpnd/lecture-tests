@@ -38,6 +38,27 @@ cd frontend && npm install && npm run dev
 
 API: http://localhost:8000/docs · Фронт: http://localhost:5173 · MinIO-консоль: http://localhost:9001
 
+## Деплой в k8s (Helm)
+
+```bash
+# 1. GPU time-slicing (один раз на кластер) — делит карту между worker и vLLM
+kubectl apply -f helm/gpu-time-slicing/time-slicing-config.yaml
+#    затем подключить конфиг к device plugin (см. helm/gpu-time-slicing/README.md)
+
+# 2. собрать и запушить образы
+docker build -t lecture-tests-api ./backend
+docker build -t lecture-tests-frontend ./frontend
+
+# 3. установить чарт
+helm install lt helm/lecture-tests \
+  --set minio.publicEndpoint=192.168.1.116:30900 \
+  --set vllm.baseUrl=http://192.168.1.116:30800/v1
+```
+
+Фронт — NodePort `30080`, MinIO — NodePort `30900` (его адрес должен совпадать с
+`minio.publicEndpoint`, т.к. браузер ходит туда по presigned URL). vLLM не
+разворачивается чартом — переиспользуется существующий деплой.
+
 ## Структура
 
 ```
@@ -50,12 +71,13 @@ backend/app/
   worker.py        arq: ffmpeg → whisper → vLLM
   routers/         users, lectures, quiz, attempts
 frontend/src/
-  App.tsx api.ts   Mantine UI + клиент к API
-helm/              чарт k8s (шаг 6)
+  App.tsx Quiz.tsx api.ts   Mantine UI + модалка теста + клиент к API
+helm/lecture-tests/       Helm-чарт (api, worker, frontend, postgres, redis, minio)
+helm/gpu-time-slicing/    конфиг шаринга GPU между worker и vLLM
 ```
 
 ## Статус
 
-Скелет + UI прохождения теста (модалка с MCQ, проверка на клиенте, отправка результата).
-Дальше: миграции Alembic, Helm-чарт + GPU time-slicing.
+Скелет + UI прохождения теста + Helm-чарт и GPU time-slicing.
+Дальше: миграции Alembic, кэш моделей Whisper (PVC), production-секреты.
 ```

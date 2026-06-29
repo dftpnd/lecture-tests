@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: lecture-tests-config
+  labels: {{- include "lt.labels" . | nindent 4 }}
+data:
+  REDIS_URL: "redis://lecture-tests-redis:6379/0"
+  MINIO_ENDPOINT: "lecture-tests-minio:9000"
+  MINIO_BUCKET: {{ .Values.minio.bucket | quote }}
+  MINIO_SECURE: "false"
+  MINIO_PUBLIC_ENDPOINT: {{ .Values.minio.publicEndpoint | quote }}
+  VLLM_BASE_URL: {{ .Values.vllm.baseUrl | quote }}
+  VLLM_MODEL: {{ .Values.vllm.model | quote }}
+  WHISPER_MODEL: {{ .Values.whisper.model | quote }}
+  WHISPER_DEVICE: {{ .Values.whisper.device | quote }}
+  WHISPER_COMPUTE_TYPE: {{ .Values.whisper.computeType | quote }}
+  WHISPER_LANGUAGE: {{ .Values.whisper.language | quote }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: lecture-tests-secret
+  labels: {{- include "lt.labels" . | nindent 4 }}
+type: Opaque
+stringData:
+  DATABASE_URL: {{ include "lt.databaseUrl" . | quote }}
+  MINIO_ACCESS_KEY: {{ .Values.minio.accessKey | quote }}
+  MINIO_SECRET_KEY: {{ .Values.minio.secretKey | quote }}

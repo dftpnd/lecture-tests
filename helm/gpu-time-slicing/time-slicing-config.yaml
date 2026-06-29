@@ -1,0 +1,25 @@
+# Cluster-level GPU time-slicing for the NVIDIA device plugin.
+# This lets ONE physical GPU advertise several `nvidia.com/gpu` units so the
+# Whisper worker and the vLLM pod can each request 1 and share the card.
+#
+# `replicas: 4` = the GPU is offered as 4 schedulable slices. Pick a number
+# >= (number of pods that need the GPU). Memory is NOT partitioned — all slices
+# share the same VRAM, so make sure the resident models fit together
+# (Qwen3-14B-AWQ ~10GB + faster-whisper large-v3 ~3GB fits in 16GB).
+#
+# Apply into the namespace where the device plugin / GPU operator runs.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: time-slicing-config
+  namespace: gpu-operator   # use "kube-system" if you run the standalone device plugin
+data:
+  any: |-
+    version: v1
+    flags:
+      migStrategy: none
+    sharing:
+      timeSlicing:
+        resources:
+          - name: nvidia.com/gpu
+            replicas: 4

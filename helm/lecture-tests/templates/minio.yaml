@@ -1,0 +1,76 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: lecture-tests-minio
+  labels: {{- include "lt.labels" . | nindent 4 }}
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: {{ .Values.minio.storage }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lecture-tests-minio
+  labels: {{- include "lt.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: lecture-tests-minio }
+  template:
+    metadata:
+      labels: { app: lecture-tests-minio }
+    spec:
+      containers:
+        - name: minio
+          image: {{ .Values.minio.image }}
+          args: ["server", "/data", "--console-address", ":9001"]
+          env:
+            - { name: MINIO_ROOT_USER, value: {{ .Values.minio.accessKey | quote }} }
+            - { name: MINIO_ROOT_PASSWORD, value: {{ .Values.minio.secretKey | quote }} }
+          ports:
+            - { containerPort: 9000 }
+            - { containerPort: 9001 }
+          volumeMounts:
+            - { name: data, mountPath: /data }
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: lecture-tests-minio
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lecture-tests-minio
+  labels: {{- include "lt.labels" . | nindent 4 }}
+spec:
+  # NodePort so the browser can reach presigned URLs (set minio.publicEndpoint to match).
+  type: NodePort
+  selector: { app: lecture-tests-minio }
+  ports:
+    - { name: api, port: 9000, targetPort: 9000, nodePort: 30900 }
+    - { name: console, port: 9001, targetPort: 9001, nodePort: 30901 }
+---
+# Creates the bucket once MinIO is up.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: lecture-tests-minio-init
+  labels: {{- include "lt.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-delete-policy": hook-succeeded
+spec:
+  backoffLimit: 5
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: mc
+          image: minio/mc:latest
+          command: ["/bin/sh", "-c"]
+          args:
+            - >
+              until mc alias set local http://lecture-tests-minio:9000 {{ .Values.minio.accessKey }} {{ .Values.minio.secretKey }}; do sleep 2; done;
+              mc mb -p local/{{ .Values.minio.bucket }};

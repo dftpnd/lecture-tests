@@ -1,0 +1,56 @@
+# Images — build & push these, then set repository/tag.
+images:
+  api:
+    repository: lecture-tests-api
+    tag: latest
+    pullPolicy: IfNotPresent
+  frontend:
+    repository: lecture-tests-frontend
+    tag: latest
+    pullPolicy: IfNotPresent
+
+# vLLM is reused from the existing cluster deployment — point at its service/URL.
+vllm:
+  baseUrl: "http://192.168.1.116:30800/v1"
+  model: "qwen3-14b-awq"
+
+whisper:
+  model: "large-v3"
+  device: "cuda"
+  computeType: "float16"
+  language: "ru"
+
+postgres:
+  image: postgres:16-alpine
+  user: lectures
+  password: lectures        # override via --set or a sealed secret in prod
+  db: lectures
+  storage: 5Gi
+
+redis:
+  image: redis:7-alpine
+
+minio:
+  image: minio/minio:latest
+  accessKey: minioadmin
+  secretKey: minioadmin       # override in prod
+  bucket: lectures
+  storage: 50Gi
+  # Browser-reachable address for presigned upload/download URLs.
+  # Must be externally accessible (NodePort/Ingress/LB), NOT the in-cluster name.
+  publicEndpoint: "192.168.1.116:30900"
+
+worker:
+  replicas: 1                 # one GPU job at a time
+  # With time-slicing enabled the single physical GPU advertises several
+  # nvidia.com/gpu units, so worker and vLLM can each request 1.
+  gpu: 1
+
+frontend:
+  service:
+    type: NodePort
+    nodePort: 30080
+
+ingress:
+  enabled: false
+  host: lectures.local
