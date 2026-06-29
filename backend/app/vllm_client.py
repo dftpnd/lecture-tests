@@ -1,6 +1,7 @@
-"""Async client to the vLLM OpenAI-compatible endpoint with guided JSON output."""
+"""Async client to the vLLM OpenAI-compatible endpoint with structured output."""
 
 import json
+import re
 
 import httpx
 
@@ -31,17 +32,30 @@ QUIZ_SCHEMA = {
     "required": ["questions"],
 }
 
+_THINK_RE = re.compile(r"<think>.*?</think>", re.DOTALL)
 
-async def _chat(messages: list[dict], guided_json: dict | None = None, max_tokens: int = 4096) -> str:
+
+def _strip_think(text: str) -> str:
+    """Qwen3 is a reasoning model; drop any leftover <think> block."""
+    return _THINK_RE.sub("", text).strip()
+
+
+async def _chat(messages: list[dict], response_schema: dict | None = None, max_tokens: int = 1024) -> str:
     payload: dict = {
         "model": settings.vllm_model,
         "messages": messages,
         "temperature": 0.7,
         "max_tokens": max_tokens,
+        # Disable Qwen3 thinking — we want direct answers, and it saves tokens
+        # (important with the trimmed 6144 context).
+        "chat_template_kwargs": {"enable_thinking": False},
     }
-    if guided_json is not None:
-        # vLLM guided decoding — forces structurally valid JSON.
-        payload["guided_json"] = guided_json
+    if response_schema is not None:
+        # v0.23 structured output — forces clean JSON (no <think>), unlike guided_json.
+        payload["response_format"] = {
+            "type": "json_schema",
+            "json_schema": {"name": "out", "schema": response_schema},
+        }
 
     async with httpx.AsyncClient(timeout=300) as client:
         resp = await client.post(f"{settings.vllm_base_url}/chat/completions", json=payload)
@@ -61,11 +75,15 @@ async def summarize(transcript: str) -> str:
         ],
         max_tokens=1024,
     )
-    return content.strip()
+    return _strip_think(content)
 
 
 async def generate_quiz(transcript: str, summary: str, n: int = 20) -> list[dict]:
-    """Generate N fresh multiple-choice questions in Russian from the lecture."""
+    """Generate N fresh multiple-choice questions in Russian from the lecture.
+
+    Context is tight (vLLM max_model_len 6144), so we rely mostly on the summary
+    (which already condenses the whole lecture) plus a transcript excerpt.
+    """
     raw = await _chat(
         [
             {
@@ -80,11 +98,12 @@ async def generate_quiz(transcript: str, summary: str, n: int = 20) -> list[dict
                 "role": "user",
                 "content": (
                     f"Составь {n} разных вопросов с вариантами ответа по этой лекции.\n\n"
-                    f"Конспект:\n{summary}\n\nТранскрипт:\n{transcript[:16000]}"
+                    f"Конспект (охватывает всю лекцию):\n{summary[:2500]}\n\n"
+                    f"Фрагмент транскрипта:\n{transcript[:5000]}"
                 ),
             },
         ],
-        guided_json=QUIZ_SCHEMA,
-        max_tokens=6144,
+        response_schema=QUIZ_SCHEMA,
+        max_tokens=2800,
     )
-    return json.loads(raw)["questions"]
+    return json.loads(_strip_think(raw))["questions"]
