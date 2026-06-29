@@ -30,11 +30,13 @@ spec:
           envFrom:
             - configMapRef: { name: lecture-tests-config }
             - secretRef: { name: lecture-tests-secret }
+          {{- if gt (int .Values.worker.gpu) 0 }}
           resources:
             limits:
               # With GPU time-slicing enabled, this 1 unit is a time-slice of the
               # shared physical GPU (vLLM holds another slice).
               nvidia.com/gpu: {{ .Values.worker.gpu }}
+          {{- end }}
           volumeMounts:
             - { name: models, mountPath: /models }
       volumes:

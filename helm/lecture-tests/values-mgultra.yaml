@@ -1,0 +1,22 @@
+# Overrides for the mg-ultra cluster (kubeadm, single node, 1x RTX 5080).
+# Deploy:  helm upgrade -i lt helm/lecture-tests -n lectures -f helm/lecture-tests/values-mgultra.yaml
+#
+# Notes:
+# - Whisper runs on CPU: vLLM holds ~90% VRAM and the node advertises only 1 GPU
+#   (no time-slicing), so GPU Whisper won't fit. CPU + int8 is the working setup.
+# - vLLM is reused from the `vllm` namespace via its in-cluster service.
+# - Storage uses the local-path provisioner (installed cluster-wide, default SC).
+
+vllm:
+  baseUrl: "http://qwen3-api.vllm.svc.cluster.local:8000/v1"
+  model: "qwen3-14b"        # matches vLLM --served-model-name
+
+whisper:
+  device: "cpu"
+  computeType: "int8"
+
+worker:
+  gpu: 0                    # no GPU request; Whisper on CPU
+
+minio:
+  publicEndpoint: "192.168.1.116:30900"   # NodePort, reachable by the browser

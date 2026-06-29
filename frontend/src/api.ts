@@ -48,7 +48,7 @@ export const api = {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ title, video_path: object_key }),
-    }).then(json);
+    }).then((r) => json<Lecture>(r));
   },
 
   lectures: () => fetch(`${BASE}/lectures`).then((r) => json<Lecture[]>(r)),
