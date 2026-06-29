@@ -1,10 +1,13 @@
-# Overrides for the mg-ultra cluster (kubeadm, single node, 1x RTX 5080).
+# Overrides for the mg-ultra cluster (kubeadm, single node, 1x RTX 5080, sm_120).
 # Deploy:  helm upgrade -i lt helm/lecture-tests -n lectures -f helm/lecture-tests/values-mgultra.yaml
 #
 # Notes:
-# - Whisper runs on CPU: vLLM holds ~90% VRAM and the node advertises only 1 GPU
-#   (no time-slicing), so GPU Whisper won't fit. CPU + int8 is the working setup.
-# - vLLM is reused from the `vllm` namespace via its in-cluster service.
+# - Whisper runs on GPU (medium), sharing the RTX 5080 with vLLM via the nvidia
+#   RuntimeClass + NVIDIA_VISIBLE_DEVICES (no device-plugin allocation; the single
+#   nvidia.com/gpu unit stays with vLLM). Verified faster-whisper works on sm_120.
+# - vLLM (in `vllm` ns) is trimmed to fit alongside Whisper on the 16GB card:
+#   --gpu-memory-utilization=0.75 --max-model-len=6144 --enforce-eager
+#   (leaves ~2.6GB free; medium float16 ~1.5GB). 14B-AWQ + large-v3 do NOT both fit.
 # - Storage uses the local-path provisioner (installed cluster-wide, default SC).
 
 vllm:
@@ -12,11 +15,16 @@ vllm:
   model: "qwen3-14b"        # matches vLLM --served-model-name
 
 whisper:
-  device: "cpu"
-  computeType: "int8"
+  model: "medium"
+  device: "cuda"
+  # int8_float16 ~0.8GB weights (vs ~1.5GB float16) — fits the ~2.6GB free
+  # alongside vLLM, near-fp16 quality.
+  computeType: "int8_float16"
 
 worker:
-  gpu: 0                    # no GPU request; Whisper on CPU
+  gpu: 0                    # no device-plugin request; share vLLM's GPU instead
+  shareGpu: true            # expose GPU via NVIDIA container runtime
+  runtimeClassName: nvidia
 
 minio:
   publicEndpoint: "192.168.1.116:30900"   # NodePort, reachable by the browser

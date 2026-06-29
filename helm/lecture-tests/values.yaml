@@ -4,6 +4,10 @@ images:
     repository: lecture-tests-api
     tag: latest
     pullPolicy: IfNotPresent
+  worker:
+    repository: lecture-tests-worker
+    tag: gpu
+    pullPolicy: IfNotPresent
   frontend:
     repository: lecture-tests-frontend
     tag: latest
@@ -47,9 +51,13 @@ minio:
 
 worker:
   replicas: 1                 # one GPU job at a time
-  # With time-slicing enabled the single physical GPU advertises several
-  # nvidia.com/gpu units, so worker and vLLM can each request 1.
-  gpu: 1
+  # Number of nvidia.com/gpu units to request via the device plugin. Keep 0 when
+  # sharing an already-allocated GPU with vLLM via shareGpu (below).
+  gpu: 0
+  # Expose the GPU through the NVIDIA container runtime (NVIDIA_VISIBLE_DEVICES)
+  # without a device-plugin allocation — lets the worker share vLLM's GPU.
+  shareGpu: true
+  runtimeClassName: nvidia    # RuntimeClass that selects the nvidia runtime
   # Persistent cache for the Whisper model (avoids re-download on restart).
   modelsStorage: 20Gi
 

@@ -87,3 +87,7 @@ class WorkerSettings:
     functions = [process_video]
     redis_settings = RedisSettings.from_dsn(settings.redis_url)
     max_jobs = 1  # one GPU job at a time
+    # Transcription of a long lecture far exceeds arq's 300s default, which would
+    # cancel + retry the job forever. Allow up to 3h per job, retry at most twice.
+    job_timeout = 10800
+    max_tries = 2

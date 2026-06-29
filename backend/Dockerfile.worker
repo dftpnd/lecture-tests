@@ -1,0 +1,20 @@
+# GPU worker image: faster-whisper on CUDA needs cuDNN 9 + cuBLAS, which the
+# slim Python image lacks. Base on the NVIDIA CUDA 12.6 runtime (ships cuDNN 9).
+# The host driver (CUDA 13.2) is backward-compatible with the 12.6 runtime.
+FROM nvidia/cuda:12.6.3-cudnn-runtime-ubuntu24.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 python3-pip ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Ubuntu 24.04 marks the system env as externally managed; this is a container.
+RUN pip install --no-cache-dir --break-system-packages \
+    "sqlalchemy[asyncio]" asyncpg alembic pydantic-settings minio arq httpx faster-whisper
+
+COPY . .
+
+# Make the NVIDIA container runtime expose the GPU (set via env in the manifest).
+CMD ["arq", "app.worker.WorkerSettings"]
