@@ -89,8 +89,8 @@ export const api = {
 
   lectures: () => fetch(`${BASE}/lectures`).then((r) => json<Lecture[]>(r)),
 
-  quiz: (lectureId: number, n = 20) =>
-    fetch(`${BASE}/quiz/${lectureId}?n=${n}`, { method: "POST" }).then((r) =>
+  quiz: (lectureId: number) =>
+    fetch(`${BASE}/quiz/${lectureId}`, { method: "POST" }).then((r) =>
       json<{ lecture_id: number; questions: Question[] }>(r),
     ),
 

@@ -1,6 +1,8 @@
 """Async client to the vLLM OpenAI-compatible endpoint with structured output."""
 
+import asyncio
 import json
+import math
 import re
 
 import httpx
@@ -100,32 +102,75 @@ async def generate_title(summary: str) -> str:
     return first.strip(" \"«».").strip()[:200]
 
 
-async def generate_quiz(transcript: str, summary: str, n: int = 20) -> list[dict]:
-    """Generate N fresh multiple-choice questions in Russian from the lecture.
+# Quiz generation must cover the WHOLE lecture, but vLLM's context is small
+# (max_model_len 6144). So we slice the transcript into windows that span the
+# entire lecture and generate questions per window, then merge + dedupe + cap.
+_QUIZ_MAX = 50          # hard upper bound on total questions
+_CHUNK_CHARS = 3500     # per-window transcript size (fits context with the output)
+_MAX_CHUNKS = 12        # cap on parallel vLLM calls (bounds latency)
 
-    Context is tight (vLLM max_model_len 6144), so we rely mostly on the summary
-    (which already condenses the whole lecture) plus a transcript excerpt.
+
+def _windows(text: str, n_chunks: int, size: int) -> list[str]:
+    """`n_chunks` evenly-spaced windows of up to `size` chars spanning the text."""
+    if n_chunks <= 1 or len(text) <= size:
+        return [text[:size]] if text else []
+    step = len(text) / n_chunks
+    return [text[int(i * step) : int(i * step) + size] for i in range(n_chunks)]
+
+
+_QUIZ_SYS = (
+    "Ты составляешь тесты по лекциям на русском языке. "
+    "Каждый вопрос — с 4 вариантами ответа, ровно один верный. "
+    "Вопросы проверяют понимание материала."
+)
+
+
+async def _quiz_chunk(fragment: str, k: int) -> list[dict]:
+    """Up to `k` questions strictly from one transcript fragment. Never raises."""
+    try:
+        raw = await _chat(
+            [
+                {"role": "system", "content": _QUIZ_SYS},
+                {
+                    "role": "user",
+                    "content": (
+                        f"Составь до {k} вопросов строго по этому фрагменту лекции. "
+                        "Сделай ровно столько вопросов, сколько оправдано содержанием "
+                        "фрагмента — не выдумывай лишнего и не дублируй.\n\n"
+                        f"Фрагмент:\n{fragment}"
+                    ),
+                },
+            ],
+            response_schema=QUIZ_SCHEMA,
+            max_tokens=1500,
+        )
+        return json.loads(_strip_think(raw))["questions"]
+    except Exception as exc:  # noqa: BLE001 — one bad window shouldn't kill the quiz
+        print(f"quiz chunk failed: {exc}")
+        return []
+
+
+async def generate_quiz(transcript: str, summary: str, max_n: int = _QUIZ_MAX) -> list[dict]:
+    """Generate as many MCQs as the lecture warrants (capped at max_n), drawn from
+    the whole transcript rather than just its start.
+
+    The transcript is sliced into windows covering the entire lecture; each window
+    yields a proportional share of the questions, generated in parallel (vLLM
+    batches them). Results are merged, de-duplicated by question text, capped.
     """
-    raw = await _chat(
-        [
-            {
-                "role": "system",
-                "content": (
-                    "Ты составляешь тесты по лекциям на русском языке. "
-                    "Каждый вопрос — с 4 вариантами ответа, ровно один верный. "
-                    "Вопросы должны покрывать разные части лекции и проверять понимание."
-                ),
-            },
-            {
-                "role": "user",
-                "content": (
-                    f"Составь {n} разных вопросов с вариантами ответа по этой лекции.\n\n"
-                    f"Конспект (охватывает всю лекцию):\n{summary[:2500]}\n\n"
-                    f"Фрагмент транскрипта:\n{transcript[:5000]}"
-                ),
-            },
-        ],
-        response_schema=QUIZ_SCHEMA,
-        max_tokens=2800,
-    )
-    return json.loads(_strip_think(raw))["questions"]
+    source = transcript if transcript.strip() else summary
+    n_chunks = max(1, min(_MAX_CHUNKS, math.ceil(len(source) / _CHUNK_CHARS)))
+    per_chunk = max(1, min(8, math.ceil(max_n / n_chunks)))
+
+    windows = _windows(source, n_chunks, _CHUNK_CHARS)
+    results = await asyncio.gather(*(_quiz_chunk(w, per_chunk) for w in windows))
+
+    seen: set[str] = set()
+    questions: list[dict] = []
+    for chunk in results:
+        for q in chunk:
+            key = q["question"].strip().lower()
+            if key and key not in seen:
+                seen.add(key)
+                questions.append(q)
+    return questions[:max_n]
