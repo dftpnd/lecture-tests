@@ -18,6 +18,7 @@ class UserOut(BaseModel):
 
 # --- Lectures ---
 class LectureCreate(BaseModel):
+    user_name: str   # uploader's login name; must be on the upload allowlist
     title: str
     video_path: str  # MinIO key returned after the presigned upload
 
@@ -47,8 +48,27 @@ class Question(BaseModel):
 
 class Quiz(BaseModel):
     lecture_id: int
+    quiz_set_id: int  # which set was served; echoed back when submitting the attempt
     questions: list[Question]
-    cached: bool = False  # True = served from the saved set, False = generated now
+    cached: bool = False  # True = reused an existing set, False = generated now
+
+
+# --- Question votes ---
+Reaction = str  # "skull" | "heart"
+
+
+class VoteIn(BaseModel):
+    user_name: str
+    reaction: Reaction  # "skull" | "heart"
+
+
+class QuestionVotes(BaseModel):
+    """Aggregate reactions for one question, plus the caller's own choice."""
+
+    question_index: int
+    skull: int
+    heart: int
+    mine: Reaction | None = None  # caller's reaction, or None
 
 
 # --- Attempts ---
@@ -63,6 +83,7 @@ class AnswerDetail(BaseModel):
 class AttemptIn(BaseModel):
     user_name: str
     lecture_id: int
+    quiz_set_id: int | None = None  # the set this attempt was taken on
     score: int
     total: int
     details: list[AnswerDetail]

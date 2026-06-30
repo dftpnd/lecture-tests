@@ -41,6 +41,15 @@ export interface AttemptHistory {
   created_at: string;
 }
 
+export type Reaction = "skull" | "heart";
+
+export interface QuestionVotes {
+  question_index: number;
+  skull: number;
+  heart: number;
+  mine: Reaction | null;
+}
+
 async function json<T>(r: Response): Promise<T> {
   if (!r.ok) throw new Error(await r.text());
   return r.json();
@@ -72,10 +81,17 @@ export const api = {
       body: JSON.stringify({ name }),
     }).then(json),
 
-  // 1. get presigned URL  2. PUT video to MinIO (with progress)  3. register lecture
-  async upload(file: File, title: string, onProgress?: (pct: number) => void): Promise<Lecture> {
+  // 1. get presigned URL  2. PUT video to MinIO (with progress)  3. register lecture.
+  // Only allow-listed users may upload; the backend enforces it by login name.
+  async upload(
+    file: File,
+    title: string,
+    userName: string,
+    onProgress?: (pct: number) => void,
+  ): Promise<Lecture> {
     const { upload_url, object_key } = await fetch(
-      `${BASE}/lectures/upload-url?filename=${encodeURIComponent(file.name)}`,
+      `${BASE}/lectures/upload-url?filename=${encodeURIComponent(file.name)}` +
+        `&user_name=${encodeURIComponent(userName)}`,
     ).then((r) => json<{ upload_url: string; object_key: string }>(r));
 
     await putWithProgress(upload_url, file, onProgress ?? (() => {}));
@@ -83,15 +99,17 @@ export const api = {
     return fetch(`${BASE}/lectures`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, video_path: object_key }),
+      body: JSON.stringify({ user_name: userName, title, video_path: object_key }),
     }).then((r) => json<Lecture>(r));
   },
 
   lectures: () => fetch(`${BASE}/lectures`).then((r) => json<Lecture[]>(r)),
 
-  quiz: (lectureId: number) =>
-    fetch(`${BASE}/quiz/${lectureId}`, { method: "POST" }).then((r) =>
-      json<{ lecture_id: number; questions: Question[]; cached: boolean }>(r),
+  quiz: (lectureId: number, userName: string) =>
+    fetch(`${BASE}/quiz/${lectureId}?user_name=${encodeURIComponent(userName)}`, {
+      method: "POST",
+    }).then((r) =>
+      json<{ lecture_id: number; quiz_set_id: number; questions: Question[]; cached: boolean }>(r),
     ),
 
   submitAttempt: (body: unknown) =>
@@ -100,6 +118,18 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     }).then(json),
+
+  votes: (quizSetId: number, userName: string) =>
+    fetch(
+      `${BASE}/quiz-sets/${quizSetId}/votes?user_name=${encodeURIComponent(userName)}`,
+    ).then((r) => json<QuestionVotes[]>(r)),
+
+  vote: (quizSetId: number, questionIndex: number, userName: string, reaction: Reaction) =>
+    fetch(`${BASE}/quiz-sets/${quizSetId}/questions/${questionIndex}/vote`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_name: userName, reaction }),
+    }).then((r) => json<QuestionVotes>(r)),
 
   progress: (name: string) =>
     fetch(`${BASE}/users/${encodeURIComponent(name)}/progress`).then((r) => json<Progress[]>(r)),

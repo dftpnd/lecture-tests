@@ -15,9 +15,18 @@ from app import storage
 router = APIRouter(prefix="/lectures", tags=["lectures"])
 
 
+def require_uploader(user_name: str) -> str:
+    """Only allow-listed users may upload lectures (identity is the login name)."""
+    name = user_name.strip()
+    if name not in settings.upload_allowlist:
+        raise HTTPException(403, "у этого пользователя нет прав на загрузку лекций")
+    return name
+
+
 @router.get("/upload-url", response_model=PresignedUpload)
-async def get_upload_url(filename: str):
+async def get_upload_url(filename: str, user_name: str):
     """Browser uploads the video straight to MinIO via this URL."""
+    require_uploader(user_name)
     ext = filename.rsplit(".", 1)[-1] if "." in filename else "mp4"
     object_key = f"videos/{uuid.uuid4().hex}.{ext}"
     return PresignedUpload(upload_url=storage.presigned_put(object_key), object_key=object_key)
@@ -26,6 +35,7 @@ async def get_upload_url(filename: str):
 @router.post("", response_model=LectureOut)
 async def create_lecture(payload: LectureCreate, session: AsyncSession = Depends(get_session)):
     """Register an uploaded video and enqueue processing."""
+    require_uploader(payload.user_name)
     lecture = Lecture(title=payload.title, video_path=payload.video_path, status="pending")
     session.add(lecture)
     await session.commit()

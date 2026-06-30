@@ -24,7 +24,11 @@ export function TestPage() {
   const [loggedIn, setLoggedIn] = useState(Boolean(localStorage.getItem("user")));
   const { lectures, refresh } = useLectures();
   const [progress, setProgress] = useState<Prog[]>([]);
-  const [activeQuiz, setActiveQuiz] = useState<{ lecture: Lecture; questions: Question[] } | null>(null);
+  const [activeQuiz, setActiveQuiz] = useState<{
+    lecture: Lecture;
+    questions: Question[];
+    quizSetId: number;
+  } | null>(null);
   const [historyLecture, setHistoryLecture] = useState<Lecture | null>(null);
   const [generating, setGenerating] = useState<number | null>(null);
 
@@ -48,16 +52,16 @@ export function TestPage() {
       autoClose: false,
     });
     try {
-      const quiz = await api.quiz(lec.id);
-      // Only the first visit generates; later visits reuse the saved set.
+      const quiz = await api.quiz(lec.id, name);
+      // Reuses a set you haven't taken yet; generates a fresh one if you've done them all.
       notifications.update({
         id: nid,
-        message: quiz.cached ? "Готовый набор вопросов" : "Вопросы сгенерированы",
+        message: quiz.cached ? "Готовый набор вопросов" : "Новый набор вопросов сгенерирован",
         color: "green",
         loading: false,
         autoClose: 2000,
       });
-      setActiveQuiz({ lecture: lec, questions: quiz.questions });
+      setActiveQuiz({ lecture: lec, questions: quiz.questions, quizSetId: quiz.quiz_set_id });
     } catch (e) {
       notifications.update({
         id: nid,
@@ -158,6 +162,7 @@ export function TestPage() {
         <Quiz
           lecture={activeQuiz.lecture}
           questions={activeQuiz.questions}
+          quizSetId={activeQuiz.quizSetId}
           userName={name}
           onClose={() => setActiveQuiz(null)}
           onSubmitted={refresh}

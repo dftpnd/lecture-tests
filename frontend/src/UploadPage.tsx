@@ -19,11 +19,17 @@ import { useLectures } from "./useLectures";
 
 const statusColor = (s: string) => (s === "done" ? "green" : s === "failed" ? "red" : "yellow");
 
+// Mirrors the backend allowlist (upload_allowed_users); the backend is the real gate.
+const UPLOAD_ALLOWED = ["dft", "li"];
+
 export function UploadPage() {
   const { lectures, refresh } = useLectures();
   const [uploading, setUploading] = useState(false);
   const [pct, setPct] = useState(0);
   const [currentFile, setCurrentFile] = useState("");
+
+  const userName = localStorage.getItem("user") ?? "";
+  const canUpload = UPLOAD_ALLOWED.includes(userName.trim());
 
   async function handleDrop(files: File[]) {
     const file = files[0];
@@ -31,7 +37,7 @@ export function UploadPage() {
     setPct(0);
     setUploading(true);
     try {
-      await api.upload(file, file.name.replace(/\.[^.]+$/, ""), setPct);
+      await api.upload(file, file.name.replace(/\.[^.]+$/, ""), userName, setPct);
       notifications.show({ message: "Видео загружено, началась обработка", color: "green" });
       refresh();
     } catch (e) {
@@ -55,12 +61,20 @@ export function UploadPage() {
       <AppShell.Main>
         <Container size="md">
           <Stack gap="lg">
+            {!canUpload && (
+              <Card withBorder>
+                <Text c="dimmed">
+                  Загружать лекции могут только пользователи <b>dft</b> и <b>li</b>.
+                  {userName ? ` Вы вошли как «${userName}».` : " Войдите под нужным именем."}
+                </Text>
+              </Card>
+            )}
             <Dropzone
               onDrop={handleDrop}
               accept={[MIME_TYPES.mp4, "video/x-matroska", "video/*"]}
               maxFiles={1}
               loading={uploading}
-              disabled={uploading}
+              disabled={uploading || !canUpload}
             >
               <Text ta="center" py="xl">
                 Перетащите видео лекции сюда или кликните для выбора

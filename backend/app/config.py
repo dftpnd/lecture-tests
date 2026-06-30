@@ -33,5 +33,12 @@ class Settings(BaseSettings):
     # Dev convenience: create tables on startup. Disable in prod (use Alembic).
     auto_create_tables: bool = True
 
+    # Only these users (by login name) may upload lecture videos. Comma-separated.
+    upload_allowed_users: str = "dft,li"
+
+    @property
+    def upload_allowlist(self) -> set[str]:
+        return {n.strip() for n in self.upload_allowed_users.split(",") if n.strip()}
+
 
 settings = Settings()

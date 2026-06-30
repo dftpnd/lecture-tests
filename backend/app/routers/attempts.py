@@ -17,6 +17,7 @@ async def submit_attempt(payload: AttemptIn, session: AsyncSession = Depends(get
     attempt = Attempt(
         user_id=user.id,
         lecture_id=payload.lecture_id,
+        quiz_set_id=payload.quiz_set_id,
         score=payload.score,
         total=payload.total,
         details_json=[d.model_dump() for d in payload.details],

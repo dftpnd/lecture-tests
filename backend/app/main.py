@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.db import Base, engine
-from app.routers import attempts, lectures, quiz, users
+from app.routers import attempts, lectures, quiz, users, votes
 from app.storage import ensure_bucket
 
 
@@ -32,6 +32,7 @@ app.include_router(users.router)
 app.include_router(lectures.router)
 app.include_router(quiz.router)
 app.include_router(attempts.router)
+app.include_router(votes.router)
 
 
 @app.get("/health")
