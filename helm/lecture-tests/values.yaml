@@ -2,7 +2,7 @@
 images:
   api:
     repository: lecture-tests-api
-    tag: cache
+    tag: lock
     pullPolicy: IfNotPresent
   worker:
     repository: lecture-tests-worker
