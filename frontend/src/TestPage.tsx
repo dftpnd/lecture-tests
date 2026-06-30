@@ -41,12 +41,31 @@ export function TestPage() {
 
   async function startTest(lec: Lecture) {
     setGenerating(lec.id);
-    notifications.show({ message: "Генерирую вопросы…", color: "blue" });
+    const nid = notifications.show({
+      message: "Готовлю тест…",
+      color: "blue",
+      loading: true,
+      autoClose: false,
+    });
     try {
       const quiz = await api.quiz(lec.id);
+      // Only the first visit generates; later visits reuse the saved set.
+      notifications.update({
+        id: nid,
+        message: quiz.cached ? "Готовый набор вопросов" : "Вопросы сгенерированы",
+        color: "green",
+        loading: false,
+        autoClose: 2000,
+      });
       setActiveQuiz({ lecture: lec, questions: quiz.questions });
     } catch (e) {
-      notifications.show({ message: `Не удалось сгенерировать тест: ${e}`, color: "red" });
+      notifications.update({
+        id: nid,
+        message: `Не удалось открыть тест: ${e}`,
+        color: "red",
+        loading: false,
+        autoClose: 4000,
+      });
     } finally {
       setGenerating(null);
     }

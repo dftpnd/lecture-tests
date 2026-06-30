@@ -48,6 +48,7 @@ class Question(BaseModel):
 class Quiz(BaseModel):
     lecture_id: int
     questions: list[Question]
+    cached: bool = False  # True = served from the saved set, False = generated now
 
 
 # --- Attempts ---

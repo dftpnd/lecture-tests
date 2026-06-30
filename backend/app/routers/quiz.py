@@ -32,7 +32,11 @@ async def make_quiz(lecture_id: int, session: AsyncSession = Depends(get_session
 
     # Serve the cached set if one was already generated.
     if lecture.questions_json:
-        return Quiz(lecture_id=lecture_id, questions=[Question(**q) for q in lecture.questions_json])
+        return Quiz(
+            lecture_id=lecture_id,
+            questions=[Question(**q) for q in lecture.questions_json],
+            cached=True,
+        )
 
     # Only one generation per lecture: a concurrent request blocks here until the
     # holder commits, then re-reads the now-cached set below. Transaction-scoped,
@@ -42,7 +46,11 @@ async def make_quiz(lecture_id: int, session: AsyncSession = Depends(get_session
     # Re-check after taking the lock — another request may have generated meanwhile.
     await session.refresh(lecture)
     if lecture.questions_json:
-        return Quiz(lecture_id=lecture_id, questions=[Question(**q) for q in lecture.questions_json])
+        return Quiz(
+            lecture_id=lecture_id,
+            questions=[Question(**q) for q in lecture.questions_json],
+            cached=True,
+        )
 
     with tempfile.TemporaryDirectory() as tmp:
         path = os.path.join(tmp, "t.txt")

@@ -91,7 +91,7 @@ export const api = {
 
   quiz: (lectureId: number) =>
     fetch(`${BASE}/quiz/${lectureId}`, { method: "POST" }).then((r) =>
-      json<{ lecture_id: number; questions: Question[] }>(r),
+      json<{ lecture_id: number; questions: Question[]; cached: boolean }>(r),
     ),
 
   submitAttempt: (body: unknown) =>
