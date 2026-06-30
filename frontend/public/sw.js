@@ -1,6 +1,6 @@
 // Simple offline-capable service worker for the "Лекции → Тесты" PWA.
 // Bump CACHE on each release to evict the old app shell.
-const CACHE = "lt-cache-v2";
+const CACHE = "lt-cache-v3";
 const APP_SHELL = ["/", "/index.html", "/manifest.webmanifest", "/favicon.png"];
 
 self.addEventListener("install", (event) => {

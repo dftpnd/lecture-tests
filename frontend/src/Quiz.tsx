@@ -1,18 +1,19 @@
 import { useEffect, useState } from "react";
-import {
-  Alert,
-  Button,
-  Group,
-  Modal,
-  Progress,
-  Select,
-  Stack,
-  Text,
-  Title,
-  UnstyledButton,
-} from "@mantine/core";
-import { notifications } from "@mantine/notifications";
+import { toast } from "sonner";
+import { X } from "lucide-react";
 import { api, type Question, type QuestionVotes, type Reaction } from "./api";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { Dialog, DialogContent, DialogTitle, DialogClose } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 
 interface Props {
   lectureId: number;
@@ -66,31 +67,35 @@ export function Quiz({
       const updated = await api.vote(quizSetId, index, userName, reaction);
       setVotes((prev) => ({ ...prev, [index]: updated }));
     } catch (e) {
-      notifications.show({ message: `Не удалось проголосовать: ${e}`, color: "red" });
+      toast.error(`Не удалось проголосовать: ${e}`);
     }
   }
 
   // Generation switcher: each version is a different set (possibly a different
   // number of questions). Switching just opens another version by URL.
   const versionBar = (
-    <Group gap="xs" align="center">
-      <Text size="sm" c="dimmed">
-        Генерация
-      </Text>
+    <div className="flex items-center gap-2">
+      <span className="text-sm text-muted-foreground">Генерация</span>
       <Select
-        size="xs"
-        w={70}
         value={String(version)}
-        onChange={(v) => v && Number(v) !== version && onChangeVersion(Number(v))}
-        data={Array.from({ length: totalVersions }, (_, i) => String(i + 1))}
+        onValueChange={(v) => v && Number(v) !== version && onChangeVersion(Number(v))}
         disabled={totalVersions <= 1}
-        allowDeselect={false}
-        comboboxProps={{ withinPortal: false }}
-      />
-      <Text size="sm" c="dimmed">
+      >
+        <SelectTrigger className="h-8 w-[72px]">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {Array.from({ length: totalVersions }, (_, i) => (
+            <SelectItem key={i + 1} value={String(i + 1)}>
+              {i + 1}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <span className="text-sm text-muted-foreground">
         / {totalVersions} · {questions.length} вопросов
-      </Text>
-    </Group>
+      </span>
+    </div>
   );
 
   const q = questions[current];
@@ -137,139 +142,129 @@ export function Quiz({
       });
       onSubmitted();
     } catch (e) {
-      notifications.show({ message: `Не удалось сохранить результат: ${e}`, color: "red" });
+      toast.error(`Не удалось сохранить результат: ${e}`);
     } finally {
       setSubmitting(false);
     }
   }
 
   return (
-    <Modal
-      opened
-      onClose={onClose}
-      title={`Тест: ${lectureTitle}`}
-      size="lg"
-      fullScreen
-      styles={{
-        // Keep the header clear of the iOS notch / status bar in standalone mode.
-        header: { paddingTop: "calc(env(safe-area-inset-top) + var(--mantine-spacing-sm))" },
-        body: { paddingBottom: 0 },
-      }}
-    >
-      {result ? (
-        <Stack>
-          {versionBar}
-          <Title order={3}>
-            Результат: {result.score} / {result.total}
-          </Title>
-          <Progress value={(result.score / result.total) * 100} size="lg" />
-          {result.wrong.length === 0 ? (
-            <Alert color="green">Все ответы верны 🎉</Alert>
-          ) : (
-            <>
-              <Title order={5}>Ошибки ({result.wrong.length}):</Title>
-              {result.wrong.map((w, i) => (
-                <Alert key={i} color="red" title={w.question}>
-                  <Text size="sm">Ваш ответ: {w.chosen}</Text>
-                  <Text size="sm" fw={600}>
-                    Верно: {w.correct}
-                  </Text>
-                </Alert>
-              ))}
-            </>
-          )}
-          <Button onClick={onClose}>Закрыть</Button>
-        </Stack>
-      ) : (
-        <Stack>
-          {versionBar}
-          <Progress value={(current / questions.length) * 100} />
-          <Text c="dimmed" size="sm">
-            Вопрос {current + 1} / {questions.length}
-          </Text>
-          <Title order={4}>{q.question}</Title>
-          <Group gap="xs">
-            {(["skull", "heart"] as Reaction[]).map((r) => {
-              const v = votes[current];
-              const count = v ? (r === "skull" ? v.skull : v.heart) : 0;
-              const mine = v?.mine === r;
-              return (
-                <Button
-                  key={r}
-                  size="compact-md"
-                  variant={mine ? "filled" : "default"}
-                  color={r === "skull" ? "gray" : "red"}
-                  onClick={() => react(current, r)}
-                >
-                  {r === "skull" ? "💀" : "❤️"} {count}
-                </Button>
-              );
-            })}
-          </Group>
-          <Stack gap="xs">
-            {q.options.map((opt, oi) => {
-              const isCorrect = oi === q.correct_index;
-              const isChosen = oi === chosen;
-              // Reveal correctness only after the user has answered.
-              const bg = !answered
-                ? undefined
-                : isCorrect
-                  ? "var(--mantine-color-green-light)"
-                  : isChosen
-                    ? "var(--mantine-color-red-light)"
-                    : undefined;
-              const border = !answered
-                ? "1px solid var(--mantine-color-default-border)"
-                : isCorrect
-                  ? "1px solid var(--mantine-color-green-filled)"
-                  : isChosen
-                    ? "1px solid var(--mantine-color-red-filled)"
-                    : "1px solid var(--mantine-color-default-border)";
-              return (
-                <UnstyledButton
-                  key={oi}
-                  onClick={() => choose(oi)}
-                  disabled={answered}
-                  style={{
-                    padding: "var(--mantine-spacing-sm)",
-                    borderRadius: "var(--mantine-radius-md)",
-                    border,
-                    background: bg,
-                    cursor: answered ? "default" : "pointer",
-                  }}
-                >
-                  <Text>{opt}</Text>
-                </UnstyledButton>
-              );
-            })}
-          </Stack>
-          <Group
-            justify="flex-end"
-            style={{
-              position: "sticky",
-              bottom: 0,
-              marginTop: "var(--mantine-spacing-xs)",
-              paddingTop: "var(--mantine-spacing-sm)",
-              paddingBottom: "calc(env(safe-area-inset-bottom) + var(--mantine-spacing-sm))",
-              background: "var(--mantine-color-body)",
-              borderTop: "1px solid var(--mantine-color-default-border)",
-            }}
-          >
-            <Button variant="default" onClick={onClose}>
-              Отмена
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent fullScreen showClose={false} className="p-0">
+        {/* Header — clear of the iOS notch in standalone mode. */}
+        <div className="flex items-center justify-between gap-2 border-b px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
+          <DialogTitle className="min-w-0 truncate text-base">Тест: {lectureTitle}</DialogTitle>
+          <DialogClose asChild>
+            <Button variant="ghost" size="icon" aria-label="Закрыть">
+              <X />
             </Button>
-            {isLast ? (
-              <Button onClick={submit} loading={submitting} disabled={!answered}>
-                Завершить тест
+          </DialogClose>
+        </div>
+
+        {result ? (
+          <div className="flex-1 overflow-y-auto px-4 py-4">
+            <div className="mx-auto flex max-w-2xl flex-col gap-4">
+              {versionBar}
+              <h2 className="text-xl font-semibold">
+                Результат: {result.score} / {result.total}
+              </h2>
+              <Progress className="h-3" value={(result.score / result.total) * 100} />
+              {result.wrong.length === 0 ? (
+                <Alert variant="success">
+                  <AlertDescription>Все ответы верны 🎉</AlertDescription>
+                </Alert>
+              ) : (
+                <>
+                  <h3 className="font-semibold">Ошибки ({result.wrong.length}):</h3>
+                  {result.wrong.map((w, i) => (
+                    <Alert key={i} variant="destructive">
+                      <AlertTitle>{w.question}</AlertTitle>
+                      <AlertDescription>
+                        <p>Ваш ответ: {w.chosen}</p>
+                        <p className="font-semibold">Верно: {w.correct}</p>
+                      </AlertDescription>
+                    </Alert>
+                  ))}
+                </>
+              )}
+              <Button onClick={onClose}>Закрыть</Button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="flex-1 overflow-y-auto px-4 py-4">
+              <div className="mx-auto flex max-w-2xl flex-col gap-4">
+                {versionBar}
+                <Progress value={(current / questions.length) * 100} />
+                <p className="text-sm text-muted-foreground">
+                  Вопрос {current + 1} / {questions.length}
+                </p>
+                <h2 className="text-lg font-semibold">{q.question}</h2>
+                <div className="flex gap-2">
+                  {(["skull", "heart"] as Reaction[]).map((r) => {
+                    const v = votes[current];
+                    const count = v ? (r === "skull" ? v.skull : v.heart) : 0;
+                    const mine = v?.mine === r;
+                    return (
+                      <Button
+                        key={r}
+                        size="sm"
+                        variant={mine ? "default" : "outline"}
+                        onClick={() => react(current, r)}
+                      >
+                        {r === "skull" ? "💀" : "❤️"} {count}
+                      </Button>
+                    );
+                  })}
+                </div>
+                <div className="flex flex-col gap-2">
+                  {q.options.map((opt, oi) => {
+                    const isCorrect = oi === q.correct_index;
+                    const isChosen = oi === chosen;
+                    // Reveal correctness only after the user has answered.
+                    return (
+                      <button
+                        key={oi}
+                        type="button"
+                        onClick={() => choose(oi)}
+                        disabled={answered}
+                        className={cn(
+                          "w-full rounded-md border p-3 text-left transition-colors",
+                          !answered
+                            ? "cursor-pointer border-input hover:bg-accent"
+                            : isCorrect
+                              ? "border-green-500 bg-green-500/10"
+                              : isChosen
+                                ? "border-red-500 bg-red-500/10"
+                                : "border-input opacity-70",
+                        )}
+                      >
+                        {opt}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Sticky action bar, clear of the iOS home indicator. */}
+            <div className="flex items-center justify-end gap-2 border-t bg-background px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+              <Button variant="outline" onClick={onClose}>
+                Отмена
               </Button>
-            ) : (
-              <Button onClick={() => setCurrent((c) => c + 1)} disabled={!answered}>
-                Дальше
-              </Button>
-            )}
-          </Group>
-        </Stack>
-      )}
-    </Modal>
+              {isLast ? (
+                <Button onClick={submit} disabled={submitting || !answered}>
+                  {submitting ? "…" : "Завершить тест"}
+                </Button>
+              ) : (
+                <Button onClick={() => setCurrent((c) => c + 1)} disabled={!answered}>
+                  Дальше
+                </Button>
+              )}
+            </div>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }

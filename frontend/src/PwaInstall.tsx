@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-import { Anchor, Box, Text } from "@mantine/core";
-import { IconDeviceMobile, IconShare } from "@tabler/icons-react";
+import { Smartphone, Share } from "lucide-react";
 
 // The browser's deferred install prompt (Chromium "beforeinstallprompt").
 type InstallPromptEvent = Event & {
@@ -28,6 +27,8 @@ function isIOS(): boolean {
 function isAndroid(): boolean {
   return typeof navigator !== "undefined" && /android/i.test(navigator.userAgent);
 }
+
+const hint = "inline-flex items-center justify-center gap-1.5 text-center text-sm text-muted-foreground";
 
 /** Footer hint that tells users they can install the app to their home screen. */
 export function PwaInstall() {
@@ -60,32 +61,29 @@ export function PwaInstall() {
   }
 
   return (
-    <Box ta="center" py="md" mt="xl">
+    <div className="mt-8 py-4">
       {deferred ? (
         // Chromium (Android/desktop) gave us a real install prompt — offer a button.
-        <Text size="sm" c="dimmed">
-          <IconDeviceMobile size={14} style={{ verticalAlign: "-2px" }} />{" "}
-          <Anchor component="button" type="button" onClick={install}>
+        <p className={hint}>
+          <Smartphone className="size-3.5" />
+          <button type="button" onClick={install} className="text-primary underline-offset-4 hover:underline">
             Установить приложение
-          </Anchor>{" "}
+          </button>{" "}
           на домашний экран для быстрого доступа.
-        </Text>
+        </p>
       ) : isIOS() ? (
-        <Text size="sm" c="dimmed">
-          <IconShare size={14} style={{ verticalAlign: "-2px" }} /> Установите приложение на iPhone:
-          нажмите «Поделиться», затем «На экран „Домой“».
-        </Text>
+        <p className={hint}>
+          <Share className="size-3.5" /> Установите приложение на iPhone: нажмите «Поделиться», затем «На экран „Домой“».
+        </p>
       ) : isAndroid() ? (
-        <Text size="sm" c="dimmed">
-          <IconDeviceMobile size={14} style={{ verticalAlign: "-2px" }} /> Установите приложение на
-          Android: меню браузера (⋮) → «Установить приложение».
-        </Text>
+        <p className={hint}>
+          <Smartphone className="size-3.5" /> Установите приложение на Android: меню браузера (⋮) → «Установить приложение».
+        </p>
       ) : (
-        <Text size="sm" c="dimmed">
-          <IconDeviceMobile size={14} style={{ verticalAlign: "-2px" }} /> Приложение можно установить
-          на телефон (iPhone и Android) и на компьютер — через меню браузера.
-        </Text>
+        <p className={hint}>
+          <Smartphone className="size-3.5" /> Приложение можно установить на телефон (iPhone и Android) и на компьютер — через меню браузера.
+        </p>
       )}
-    </Box>
+    </div>
   );
 }

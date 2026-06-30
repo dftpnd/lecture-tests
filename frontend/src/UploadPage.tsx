@@ -1,29 +1,29 @@
 import { useState } from "react";
-import {
-  Alert,
-  Badge,
-  Button,
-  Card,
-  Container,
-  Group,
-  Progress,
-  SegmentedControl,
-  Select,
-  Stack,
-  Text,
-  TextInput,
-  Title,
-} from "@mantine/core";
-import { Dropzone, MIME_TYPES } from "@mantine/dropzone";
-import { notifications } from "@mantine/notifications";
+import { useDropzone } from "react-dropzone";
+import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import { api } from "./api";
 import { useLectures } from "./useLectures";
 import { useTopics } from "./useTopics";
 import { PageShell } from "./PageShell";
 import { canUploadVideos } from "./permissions";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
-const statusColor = (s: string) => (s === "done" ? "green" : s === "failed" ? "red" : "yellow");
+const statusVariant = (s: string): "success" | "destructive" | "warning" =>
+  s === "done" ? "success" : s === "failed" ? "destructive" : "warning";
 
 export function UploadPage() {
   const { lectures, refresh } = useLectures();
@@ -60,7 +60,7 @@ export function UploadPage() {
       setNewTopicName("");
       setShowNewTopic(false);
     } catch (e) {
-      notifications.show({ message: `Не удалось создать тему: ${e}`, color: "red" });
+      toast.error(`Не удалось создать тему: ${e}`);
     } finally {
       setCreatingTopic(false);
     }
@@ -75,7 +75,7 @@ export function UploadPage() {
       const info = await api.youtubeInfo(url, userName);
       setLinkInfo(info);
     } catch (e) {
-      notifications.show({ message: `Не удалось прочитать ссылку: ${e}`, color: "red" });
+      toast.error(`Не удалось прочитать ссылку: ${e}`);
     } finally {
       setCheckingLink(false);
     }
@@ -83,7 +83,7 @@ export function UploadPage() {
 
   async function handleYoutubeSubmit() {
     if (!topicId) {
-      notifications.show({ message: "Сначала выберите тему для лекции", color: "yellow" });
+      toast.warning("Сначала выберите тему для лекции");
       return;
     }
     const url = youtubeUrl.trim();
@@ -91,12 +91,12 @@ export function UploadPage() {
     setSubmittingLink(true);
     try {
       await api.uploadYoutube(url, Number(topicId), userName);
-      notifications.show({ message: "Ссылка принята, видео скачивается", color: "green" });
+      toast.success("Ссылка принята, видео скачивается");
       setYoutubeUrl("");
       setLinkInfo(null);
       refresh();
     } catch (e) {
-      notifications.show({ message: `Не удалось добавить ссылку: ${e}`, color: "red" });
+      toast.error(`Не удалось добавить ссылку: ${e}`);
     } finally {
       setSubmittingLink(false);
     }
@@ -114,8 +114,9 @@ export function UploadPage() {
   }
 
   async function handleDrop(files: File[]) {
+    if (!files.length) return;
     if (!topicId) {
-      notifications.show({ message: "Сначала выберите тему для лекции", color: "yellow" });
+      toast.warning("Сначала выберите тему для лекции");
       return;
     }
     const file = files[0];
@@ -124,187 +125,196 @@ export function UploadPage() {
     setUploading(true);
     try {
       await api.upload(file, file.name.replace(/\.[^.]+$/, ""), Number(topicId), userName, setPct);
-      notifications.show({ message: "Видео загружено, началась обработка", color: "green" });
+      toast.success("Видео загружено, началась обработка");
       refresh();
     } catch (e) {
-      notifications.show({ message: `Ошибка загрузки: ${e}`, color: "red" });
+      toast.error(`Ошибка загрузки: ${e}`);
     } finally {
       setUploading(false);
     }
   }
 
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop: handleDrop,
+    accept: { "video/*": [], "video/x-matroska": [".mkv"] },
+    maxFiles: 1,
+    disabled: uploading || !canUpload,
+  });
+
   return (
     <PageShell
       title="Загрузка лекций"
       actions={
-        <Button component={Link} to="/" variant="light" size="xs">
-          К тестам →
+        <Button asChild variant="secondary" size="sm">
+          <Link to="/">К тестам →</Link>
         </Button>
       }
     >
-      <Container size="md" pt={26}>
-        <Stack gap="lg">
-            <Alert color="blue" title="Перед загрузкой">
-              Лекции принимаются <b>только на русском языке</b>.
-            </Alert>
+      <div className="flex flex-col gap-5">
+        <Alert variant="info">
+          <AlertTitle>Перед загрузкой</AlertTitle>
+          <AlertDescription>
+            Лекции принимаются <b>только на русском языке</b>.
+          </AlertDescription>
+        </Alert>
 
-            {!canUpload && (
-              <Card withBorder>
-                <Text c="dimmed">
-                  У вас нет прав на загрузку лекций.
-                  {userName ? ` Вы вошли как «${userName}».` : " Войдите под нужным именем."}{" "}
-                  Если хотите загружать видео — напишите <b>@dftpnd</b>.
-                </Text>
-              </Card>
-            )}
+        {!canUpload && (
+          <Card>
+            <CardContent className="p-4 text-sm text-muted-foreground">
+              У вас нет прав на загрузку лекций.
+              {userName ? ` Вы вошли как «${userName}».` : " Войдите под нужным именем."}{" "}
+              Если хотите загружать видео — напишите <b>@dftpnd</b>.
+            </CardContent>
+          </Card>
+        )}
 
-            {canUpload && (
-              <Stack gap="xs">
-                <Group align="flex-end" gap="sm">
-                  <Select
-                    label="Тема"
-                    placeholder="Выберите тему для лекции"
-                    data={topics.map((t) => ({ value: String(t.id), label: t.name }))}
-                    value={topicId}
-                    onChange={setTopicId}
-                    searchable
-                    disabled={uploading}
-                    style={{ flex: 1 }}
+        {canUpload && (
+          <div className="flex flex-col gap-2">
+            <div className="flex items-end gap-2">
+              <div className="flex-1">
+                <label className="mb-1.5 block text-sm font-medium">Тема</label>
+                <Select value={topicId ?? undefined} onValueChange={setTopicId} disabled={uploading}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Выберите тему для лекции" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {topics.map((t) => (
+                      <SelectItem key={t.id} value={String(t.id)}>
+                        {t.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button variant="secondary" disabled={uploading} onClick={() => setShowNewTopic((v) => !v)}>
+                + Новая тема
+              </Button>
+            </div>
+            {showNewTopic && (
+              <div className="flex items-end gap-2">
+                <div className="flex-1">
+                  <label className="mb-1.5 block text-sm font-medium">Название новой темы</label>
+                  <Input
+                    placeholder="Например: Базы данных"
+                    value={newTopicName}
+                    onChange={(e) => setNewTopicName(e.currentTarget.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleCreateTopic()}
                   />
-                  <Button
-                    variant="light"
-                    disabled={uploading}
-                    onClick={() => setShowNewTopic((v) => !v)}
-                  >
-                    + Новая тема
-                  </Button>
-                </Group>
-                {showNewTopic && (
-                  <Group align="flex-end" gap="sm">
-                    <TextInput
-                      label="Название новой темы"
-                      placeholder="Например: Базы данных"
-                      value={newTopicName}
-                      onChange={(e) => setNewTopicName(e.currentTarget.value)}
-                      onKeyDown={(e) => e.key === "Enter" && handleCreateTopic()}
-                      style={{ flex: 1 }}
-                    />
-                    <Button onClick={handleCreateTopic} loading={creatingTopic}>
-                      Создать
-                    </Button>
-                  </Group>
-                )}
-              </Stack>
+                </div>
+                <Button onClick={handleCreateTopic} disabled={creatingTopic}>
+                  {creatingTopic ? "…" : "Создать"}
+                </Button>
+              </div>
             )}
+          </div>
+        )}
 
-            {canUpload && (
-              <SegmentedControl
-                value={source}
-                onChange={(v) => setSource(v as "file" | "link")}
-                disabled={uploading || submittingLink}
-                data={[
-                  { label: "Загрузить файл", value: "file" },
-                  { label: "Ссылка на YouTube", value: "link" },
-                ]}
-              />
-            )}
+        {canUpload && (
+          <Tabs value={source} onValueChange={(v) => setSource(v as "file" | "link")}>
+            <TabsList>
+              <TabsTrigger value="file" disabled={uploading || submittingLink}>
+                Загрузить файл
+              </TabsTrigger>
+              <TabsTrigger value="link" disabled={uploading || submittingLink}>
+                Ссылка на YouTube
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        )}
 
-            {source === "file" ? (
-              <Dropzone
-                onDrop={handleDrop}
-                accept={[MIME_TYPES.mp4, "video/x-matroska", "video/*"]}
-                maxFiles={1}
-                loading={uploading}
-                disabled={uploading || !canUpload}
+        {source === "file" ? (
+          <div
+            {...getRootProps()}
+            className={`flex min-h-32 cursor-pointer items-center justify-center rounded-xl border-2 border-dashed p-6 text-center text-sm transition-colors ${
+              isDragActive ? "border-primary bg-accent" : "border-input"
+            } ${uploading || !canUpload ? "cursor-not-allowed opacity-60" : "hover:bg-accent/50"}`}
+          >
+            <input {...getInputProps()} />
+            <span className="text-muted-foreground">
+              {uploading
+                ? `Загрузка «${currentFile}»…`
+                : canUpload && !topicId
+                  ? "Сначала выберите тему, затем перетащите видео сюда"
+                  : "Перетащите видео лекции сюда или кликните для выбора"}
+            </span>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3">
+            <div className="flex items-end gap-2">
+              <div className="flex-1">
+                <label className="mb-1.5 block text-sm font-medium">Ссылка на YouTube</label>
+                <Input
+                  placeholder="https://www.youtube.com/watch?v=..."
+                  value={youtubeUrl}
+                  onChange={(e) => {
+                    setYoutubeUrl(e.currentTarget.value);
+                    setLinkInfo(null); // url changed → previous preview no longer applies
+                  }}
+                  onKeyDown={(e) => e.key === "Enter" && handleCheckLink()}
+                  disabled={submittingLink || !canUpload}
+                />
+              </div>
+              <Button
+                variant="secondary"
+                onClick={handleCheckLink}
+                disabled={checkingLink || !canUpload || !youtubeUrl.trim()}
               >
-                <Text ta="center" py="xl">
-                  {canUpload && !topicId
-                    ? "Сначала выберите тему, затем перетащите видео сюда"
-                    : "Перетащите видео лекции сюда или кликните для выбора"}
-                </Text>
-              </Dropzone>
-            ) : (
-              <Stack gap="sm">
-                <Group align="flex-end" gap="sm">
-                  <TextInput
-                    label="Ссылка на YouTube"
-                    placeholder="https://www.youtube.com/watch?v=..."
-                    value={youtubeUrl}
-                    onChange={(e) => {
-                      setYoutubeUrl(e.currentTarget.value);
-                      setLinkInfo(null); // url changed → previous preview no longer applies
-                    }}
-                    onKeyDown={(e) => e.key === "Enter" && handleCheckLink()}
-                    disabled={submittingLink || !canUpload}
-                    style={{ flex: 1 }}
-                  />
-                  <Button
-                    variant="light"
-                    onClick={handleCheckLink}
-                    loading={checkingLink}
-                    disabled={!canUpload || !youtubeUrl.trim()}
-                  >
-                    Проверить
-                  </Button>
-                </Group>
+                {checkingLink ? "…" : "Проверить"}
+              </Button>
+            </div>
 
-                {linkInfo && (
-                  <Card withBorder>
-                    <Group justify="space-between" align="flex-start" wrap="nowrap">
-                      <div>
-                        <Text fw={600}>{linkInfo.title || "Без названия"}</Text>
-                        <Text size="xs" c="dimmed">
-                          {linkInfo.uploader ? `${linkInfo.uploader} · ` : ""}
-                          длительность {formatDuration(linkInfo.duration)}
-                        </Text>
-                        {linkInfo.duration != null && linkInfo.duration < 120 && (
-                          <Text size="xs" c="orange" mt={4}>
-                            Это короткое видео — точно лекция, а не реклама/превью?
-                          </Text>
-                        )}
-                      </div>
-                      <Button
-                        onClick={handleYoutubeSubmit}
-                        loading={submittingLink}
-                        disabled={!topicId}
-                      >
-                        Добавить
-                      </Button>
-                    </Group>
-                  </Card>
-                )}
-              </Stack>
-            )}
-
-            {uploading && (
-              <Card withBorder>
-                <Text size="sm" mb="xs">
-                  Загрузка «{currentFile}» — {pct}%
-                </Text>
-                <Progress value={pct} animated />
-                <Text size="xs" c="dimmed" mt="xs">
-                  Не закрывайте вкладку до завершения загрузки
-                </Text>
-              </Card>
-            )}
-
-            <Title order={3}>Загруженные лекции</Title>
-            {lectures.length === 0 && <Text c="dimmed">Пока ничего не загружено</Text>}
-            {lectures.map((lec) => (
-              <Card key={lec.id} withBorder>
-                <Group justify="space-between">
-                  <div>
-                    <Text fw={600}>{lec.title}</Text>
-                    <Text size="xs" c="dimmed">
-                      {topicName.get(lec.topic_id) ?? "Без темы"}
-                    </Text>
+            {linkInfo && (
+              <Card>
+                <CardContent className="flex items-start justify-between gap-3 p-4">
+                  <div className="min-w-0">
+                    <p className="font-semibold">{linkInfo.title || "Без названия"}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {linkInfo.uploader ? `${linkInfo.uploader} · ` : ""}
+                      длительность {formatDuration(linkInfo.duration)}
+                    </p>
+                    {linkInfo.duration != null && linkInfo.duration < 120 && (
+                      <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                        Это короткое видео — точно лекция, а не реклама/превью?
+                      </p>
+                    )}
                   </div>
-                  <Badge color={statusColor(lec.status)}>{lec.status}</Badge>
-                </Group>
+                  <Button onClick={handleYoutubeSubmit} disabled={submittingLink || !topicId}>
+                    {submittingLink ? "…" : "Добавить"}
+                  </Button>
+                </CardContent>
               </Card>
-            ))}
-        </Stack>
-      </Container>
+            )}
+          </div>
+        )}
+
+        {uploading && (
+          <Card>
+            <CardContent className="p-4">
+              <p className="mb-2 text-sm">
+                Загрузка «{currentFile}» — {pct}%
+              </p>
+              <Progress value={pct} />
+              <p className="mt-2 text-xs text-muted-foreground">
+                Не закрывайте вкладку до завершения загрузки
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
+        <h2 className="text-lg font-semibold">Загруженные лекции</h2>
+        {lectures.length === 0 && <p className="text-sm text-muted-foreground">Пока ничего не загружено</p>}
+        {lectures.map((lec) => (
+          <Card key={lec.id}>
+            <CardContent className="flex items-center justify-between gap-3 p-4">
+              <div className="min-w-0">
+                <p className="truncate font-semibold">{lec.title}</p>
+                <p className="text-xs text-muted-foreground">{topicName.get(lec.topic_id) ?? "Без темы"}</p>
+              </div>
+              <Badge variant={statusVariant(lec.status)}>{lec.status}</Badge>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
     </PageShell>
   );
 }

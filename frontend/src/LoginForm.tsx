@@ -1,17 +1,9 @@
 import { useState } from "react";
-import {
-  Alert,
-  Button,
-  Container,
-  Group,
-  PasswordInput,
-  Stack,
-  Text,
-  TextInput,
-  Title,
-} from "@mantine/core";
 import { api } from "./api";
 import { PwaInstall } from "./PwaInstall";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 
 /**
  * Two-step login (enter a name, then create/verify a password) shared by the
@@ -84,75 +76,78 @@ export function LoginForm({
   }
 
   return (
-    <Container size="xs" pt={120}>
-      <Stack>
-        <Title order={2}>Лекции → Тесты</Title>
-        {intro && <Text c="dimmed">{intro}</Text>}
+    <div className="mx-auto flex min-h-[100dvh] w-full max-w-sm flex-col justify-center gap-4 px-4 py-16 [padding-left:max(1rem,env(safe-area-inset-left))] [padding-right:max(1rem,env(safe-area-inset-right))]">
+      <h1 className="text-2xl font-bold">Лекции → Тесты</h1>
+      {intro && <p className="text-sm text-muted-foreground">{intro}</p>}
 
-        {step === "name" && (
-          <>
-            <Text c="dimmed">Введите имя, чтобы продолжить</Text>
-            <TextInput
-              placeholder="Ваше имя"
-              value={name}
-              onChange={(e) => setName(e.currentTarget.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleContinue()}
-              autoFocus
-            />
-            {authError && <Text c="red" size="sm">{authError}</Text>}
-            <Button onClick={handleContinue} loading={authBusy}>
-              Далее
-            </Button>
-          </>
-        )}
+      {step === "name" && (
+        <>
+          <p className="text-sm text-muted-foreground">Введите имя, чтобы продолжить</p>
+          <Input
+            placeholder="Ваше имя"
+            value={name}
+            onChange={(e) => setName(e.currentTarget.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleContinue()}
+            autoFocus
+          />
+          {authError && <p className="text-sm text-destructive">{authError}</p>}
+          <Button onClick={handleContinue} disabled={authBusy}>
+            {authBusy ? "Проверяем…" : "Далее"}
+          </Button>
+        </>
+      )}
 
-        {step === "password" && (
-          <>
-            {mode === "register" && (
-              <Text c="dimmed">
-                Первый вход под именем <b>{name.trim()}</b>. Придумайте пароль.
-              </Text>
-            )}
-            {mode === "setup" && (
-              <Alert color="blue" title="Теперь нужен пароль">
+      {step === "password" && (
+        <>
+          {mode === "register" && (
+            <p className="text-sm text-muted-foreground">
+              Первый вход под именем <b>{name.trim()}</b>. Придумайте пароль.
+            </p>
+          )}
+          {mode === "setup" && (
+            <Alert variant="info">
+              <AlertTitle>Теперь нужен пароль</AlertTitle>
+              <AlertDescription>
                 Раньше вход был только по имени. Придумайте пароль для своей учётной записи{" "}
                 <b>{name.trim()}</b> — дальше он будет нужен при каждом входе.
-              </Alert>
-            )}
-            {mode === "login" && (
-              <Text c="dimmed">
-                С возвращением, <b>{name.trim()}</b>. Введите пароль.
-              </Text>
-            )}
+              </AlertDescription>
+            </Alert>
+          )}
+          {mode === "login" && (
+            <p className="text-sm text-muted-foreground">
+              С возвращением, <b>{name.trim()}</b>. Введите пароль.
+            </p>
+          )}
 
-            <PasswordInput
-              placeholder="Пароль"
-              value={password}
-              onChange={(e) => setPassword(e.currentTarget.value)}
-              onKeyDown={(e) => e.key === "Enter" && mode === "login" && handleSubmit()}
-              autoFocus
+          <Input
+            type="password"
+            placeholder="Пароль"
+            value={password}
+            onChange={(e) => setPassword(e.currentTarget.value)}
+            onKeyDown={(e) => e.key === "Enter" && mode === "login" && handleSubmit()}
+            autoFocus
+          />
+          {mode !== "login" && (
+            <Input
+              type="password"
+              placeholder="Повторите пароль"
+              value={confirm}
+              onChange={(e) => setConfirm(e.currentTarget.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
             />
-            {mode !== "login" && (
-              <PasswordInput
-                placeholder="Повторите пароль"
-                value={confirm}
-                onChange={(e) => setConfirm(e.currentTarget.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-              />
-            )}
-            {authError && <Text c="red" size="sm">{authError}</Text>}
-            <Group justify="space-between">
-              <Button variant="subtle" onClick={backToName} disabled={authBusy}>
-                ← Назад
-              </Button>
-              <Button onClick={handleSubmit} loading={authBusy}>
-                {mode === "login" ? "Войти" : "Создать пароль и войти"}
-              </Button>
-            </Group>
-          </>
-        )}
-        <PwaInstall />
-      </Stack>
-    </Container>
+          )}
+          {authError && <p className="text-sm text-destructive">{authError}</p>}
+          <div className="flex items-center justify-between">
+            <Button variant="ghost" onClick={backToName} disabled={authBusy}>
+              ← Назад
+            </Button>
+            <Button onClick={handleSubmit} disabled={authBusy}>
+              {mode === "login" ? "Войти" : "Создать пароль и войти"}
+            </Button>
+          </div>
+        </>
+      )}
+      <PwaInstall />
+    </div>
   );
 }

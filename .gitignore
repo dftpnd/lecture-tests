@@ -9,6 +9,9 @@ venv/
 # Node / frontend
 node_modules/
 frontend/dist/
+*.tsbuildinfo
+frontend/.npm-cache/
+frontend/.npm/
 *.local
 
 # Env / secrets

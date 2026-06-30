@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { Center, Loader, Stack, Text, Button, Container } from "@mantine/core";
+import { Loader2 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api, type SharedQuiz } from "./api";
 import { Quiz } from "./Quiz";
 import { LoginForm } from "./LoginForm";
+import { Button } from "@/components/ui/button";
 
 /**
  * The target of a shared test link (/t/:lectureId/:version): logs the visitor in
@@ -55,9 +56,9 @@ export function SharedTestPage() {
 
   if (!quiz) {
     return (
-      <Center h="60vh">
-        <Loader />
-      </Center>
+      <div className="flex h-[60vh] items-center justify-center">
+        <Loader2 className="size-7 animate-spin text-muted-foreground" />
+      </div>
     );
   }
 
@@ -104,19 +105,17 @@ export function LegacyTestRedirect() {
     return <Notice text={error} onHome={() => navigate("/")} />;
   }
   return (
-    <Center h="60vh">
-      <Loader />
-    </Center>
+    <div className="flex h-[60vh] items-center justify-center">
+      <Loader2 className="size-7 animate-spin text-muted-foreground" />
+    </div>
   );
 }
 
 function Notice({ text, onHome }: { text: string; onHome: () => void }) {
   return (
-    <Container size="xs" pt={120}>
-      <Stack>
-        <Text>{text}</Text>
-        <Button onClick={onHome}>На главную</Button>
-      </Stack>
-    </Container>
+    <div className="mx-auto flex min-h-[100dvh] w-full max-w-sm flex-col justify-center gap-4 px-4">
+      <p>{text}</p>
+      <Button onClick={onHome}>На главную</Button>
+    </div>
   );
 }

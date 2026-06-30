@@ -1,21 +1,16 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { MantineProvider } from "@mantine/core";
-import { Notifications } from "@mantine/notifications";
 import { BrowserRouter } from "react-router-dom";
-import "@mantine/core/styles.css";
-import "@mantine/dropzone/styles.css";
-import "@mantine/notifications/styles.css";
+import "./index.css";
 import { App } from "./App";
+import { Toaster } from "@/components/ui/sonner";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <MantineProvider defaultColorScheme="auto">
-      <Notifications />
-      <BrowserRouter>
-        <App />
-      </BrowserRouter>
-    </MantineProvider>
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
+    <Toaster />
   </React.StrictMode>,
 );
 

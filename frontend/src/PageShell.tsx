@@ -1,10 +1,13 @@
-import { AppShell, Group, Title } from "@mantine/core";
 import type { ReactNode } from "react";
+import { Menu } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 
 /**
- * Shared app layout: a top bar that grows taller on phones so the menu row
- * never overlaps the page content, plus a distinct header background.
- * Page content is passed as children (each page keeps its own Container).
+ * Shared app layout: a sticky top bar of fixed height with the page title and
+ * action buttons. On phones the actions collapse into a slide-in menu (so the
+ * bar never grows tall or overlaps content); page content flows naturally below
+ * the sticky header. Each page passes its own content as children.
  */
 export function PageShell({
   title,
@@ -16,21 +19,38 @@ export function PageShell({
   children: ReactNode;
 }) {
   return (
-    <AppShell header={{ height: { base: 96, sm: 56 } }} padding="md">
-      {/* Background comes from a color-scheme-aware CSS rule in index.html
-          (works on older Safari, unlike the light-dark() function). */}
-      <AppShell.Header>
-        <Group h="100%" px="md" py="xs" gap="xs" justify="space-between" align="center">
-          <Title order={4}>{title}</Title>
-          {actions && (
-            <Group gap="xs" wrap="wrap" justify="flex-end">
-              {actions}
-            </Group>
-          )}
-        </Group>
-      </AppShell.Header>
+    <div className="min-h-[100dvh] bg-background">
+      <header className="sticky top-0 z-40 border-b bg-background/95 pt-[env(safe-area-inset-top)] backdrop-blur supports-[backdrop-filter]:bg-background/80">
+        <div className="mx-auto flex h-14 max-w-3xl items-center justify-between gap-2 px-4 [padding-left:max(1rem,env(safe-area-inset-left))] [padding-right:max(1rem,env(safe-area-inset-right))]">
+          <h1 className="min-w-0 truncate text-base font-semibold sm:text-lg">{title}</h1>
 
-      <AppShell.Main>{children}</AppShell.Main>
-    </AppShell>
+          {actions && (
+            <>
+              {/* Desktop: actions inline in the bar. */}
+              <div className="hidden items-center gap-2 sm:flex">{actions}</div>
+
+              {/* Mobile: actions tucked into a slide-in menu. */}
+              <Sheet>
+                <SheetTrigger asChild>
+                  <Button variant="ghost" size="icon" className="sm:hidden" aria-label="Меню">
+                    <Menu />
+                  </Button>
+                </SheetTrigger>
+                <SheetContent>
+                  <SheetTitle>Меню</SheetTitle>
+                  <div className="mt-4 flex flex-col items-stretch gap-2 [&_a]:w-full [&_button]:w-full">
+                    {actions}
+                  </div>
+                </SheetContent>
+              </Sheet>
+            </>
+          )}
+        </div>
+      </header>
+
+      <main className="mx-auto w-full max-w-3xl px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-6 [padding-left:max(1rem,env(safe-area-inset-left))] [padding-right:max(1rem,env(safe-area-inset-right))]">
+        {children}
+      </main>
+    </div>
   );
 }

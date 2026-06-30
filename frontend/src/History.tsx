@@ -1,15 +1,15 @@
 import { useEffect, useState } from "react";
+import { Loader2 } from "lucide-react";
+import { api, type AttemptHistory, type Lecture } from "./api";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import {
   Accordion,
-  Alert,
-  Badge,
-  Group,
-  Loader,
-  Modal,
-  Stack,
-  Text,
-} from "@mantine/core";
-import { api, type AttemptHistory, type Lecture } from "./api";
+  AccordionItem,
+  AccordionTrigger,
+  AccordionContent,
+} from "@/components/ui/accordion";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface Props {
   lecture: Lecture;
@@ -17,10 +17,10 @@ interface Props {
   onClose: () => void;
 }
 
-function scoreColor(pct: number): string {
-  if (pct >= 80) return "green";
-  if (pct >= 50) return "yellow";
-  return "red";
+function scoreVariant(pct: number): "success" | "warning" | "destructive" {
+  if (pct >= 80) return "success";
+  if (pct >= 50) return "warning";
+  return "destructive";
 }
 
 function fmtDate(iso: string): string {
@@ -45,55 +45,68 @@ export function History({ lecture, userName, onClose }: Props) {
   }, [userName, lecture.id]);
 
   return (
-    <Modal opened onClose={onClose} title={`История: ${lecture.title}`} size="lg">
-      {error && <Alert color="red">Не удалось загрузить историю: {error}</Alert>}
-      {!error && attempts === null && (
-        <Group justify="center" py="lg">
-          <Loader />
-        </Group>
-      )}
-      {attempts !== null && attempts.length === 0 && (
-        <Text c="dimmed">Попыток по этой лекции ещё нет.</Text>
-      )}
-      {attempts !== null && attempts.length > 0 && (
-        <Accordion variant="separated">
-          {attempts.map((a) => {
-            const pct = Math.round((a.score / a.total) * 100);
-            const wrong = a.details.filter((d) => !d.is_correct);
-            return (
-              <Accordion.Item key={a.id} value={String(a.id)}>
-                <Accordion.Control>
-                  <Group justify="space-between" pr="md">
-                    <Text size="sm">{fmtDate(a.created_at)}</Text>
-                    <Badge color={scoreColor(pct)}>
-                      {a.score} / {a.total} · {pct}%
-                    </Badge>
-                  </Group>
-                </Accordion.Control>
-                <Accordion.Panel>
-                  {wrong.length === 0 ? (
-                    <Alert color="green">Все ответы верны 🎉</Alert>
-                  ) : (
-                    <Stack gap="sm">
-                      {wrong.map((d, i) => (
-                        <Alert key={i} color="red" title={d.question}>
-                          <Text size="sm">
-                            Ваш ответ:{" "}
-                            {d.user_answer >= 0 ? d.options[d.user_answer] : "— нет ответа —"}
-                          </Text>
-                          <Text size="sm" fw={600}>
-                            Верно: {d.options[d.correct]}
-                          </Text>
-                        </Alert>
-                      ))}
-                    </Stack>
-                  )}
-                </Accordion.Panel>
-              </Accordion.Item>
-            );
-          })}
-        </Accordion>
-      )}
-    </Modal>
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle className="truncate pr-6">История: {lecture.title}</DialogTitle>
+        </DialogHeader>
+
+        {error && (
+          <Alert variant="destructive">
+            <AlertDescription>Не удалось загрузить историю: {error}</AlertDescription>
+          </Alert>
+        )}
+        {!error && attempts === null && (
+          <div className="flex justify-center py-6">
+            <Loader2 className="size-6 animate-spin text-muted-foreground" />
+          </div>
+        )}
+        {attempts !== null && attempts.length === 0 && (
+          <p className="text-sm text-muted-foreground">Попыток по этой лекции ещё нет.</p>
+        )}
+        {attempts !== null && attempts.length > 0 && (
+          <Accordion type="multiple" className="flex flex-col gap-2">
+            {attempts.map((a) => {
+              const pct = Math.round((a.score / a.total) * 100);
+              const wrong = a.details.filter((d) => !d.is_correct);
+              return (
+                <AccordionItem key={a.id} value={String(a.id)}>
+                  <AccordionTrigger>
+                    <span className="flex flex-1 items-center justify-between pr-2">
+                      <span>{fmtDate(a.created_at)}</span>
+                      <Badge variant={scoreVariant(pct)}>
+                        {a.score} / {a.total} · {pct}%
+                      </Badge>
+                    </span>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    {wrong.length === 0 ? (
+                      <Alert variant="success">
+                        <AlertDescription>Все ответы верны 🎉</AlertDescription>
+                      </Alert>
+                    ) : (
+                      <div className="flex flex-col gap-2">
+                        {wrong.map((d, i) => (
+                          <Alert key={i} variant="destructive">
+                            <AlertTitle>{d.question}</AlertTitle>
+                            <AlertDescription>
+                              <p>
+                                Ваш ответ:{" "}
+                                {d.user_answer >= 0 ? d.options[d.user_answer] : "— нет ответа —"}
+                              </p>
+                              <p className="font-semibold">Верно: {d.options[d.correct]}</p>
+                            </AlertDescription>
+                          </Alert>
+                        ))}
+                      </div>
+                    )}
+                  </AccordionContent>
+                </AccordionItem>
+              );
+            })}
+          </Accordion>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }

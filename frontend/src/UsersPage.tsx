@@ -1,17 +1,17 @@
 import { useEffect, useState } from "react";
-import {
-  Button,
-  Container,
-  Group,
-  Progress,
-  Stack,
-  Table,
-  Text,
-  Title,
-} from "@mantine/core";
 import { Link } from "react-router-dom";
 import { api, type UserProgressSummary } from "./api";
 import { PageShell } from "./PageShell";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
 
 export function UsersPage() {
   const [users, setUsers] = useState<UserProgressSummary[]>([]);
@@ -29,50 +29,48 @@ export function UsersPage() {
     <PageShell
       title="Пользователи и прогресс"
       actions={
-        <Button component={Link} to="/" variant="light" size="xs">
-          К тестам →
+        <Button asChild variant="secondary" size="sm">
+          <Link to="/">К тестам →</Link>
         </Button>
       }
     >
-      <Container size="md" pt={26}>
-        <Stack gap="lg">
-            <Title order={3}>Рейтинг по среднему освоению</Title>
-            {loaded && users.length === 0 && <Text c="dimmed">Пользователей пока нет</Text>}
-            {users.length > 0 && (
-              <Table highlightOnHover>
-                <Table.Thead>
-                  <Table.Tr>
-                    <Table.Th w={40}>#</Table.Th>
-                    <Table.Th>Имя</Table.Th>
-                    <Table.Th w={220}>Среднее освоение</Table.Th>
-                    <Table.Th w={100}>Лекций</Table.Th>
-                    <Table.Th w={100}>Попыток</Table.Th>
-                  </Table.Tr>
-                </Table.Thead>
-                <Table.Tbody>
-                  {users.map((u, i) => (
-                    <Table.Tr key={u.name}>
-                      <Table.Td>{i + 1}</Table.Td>
-                      <Table.Td>
-                        <Text fw={600}>{u.name}</Text>
-                      </Table.Td>
-                      <Table.Td>
-                        <Group gap="xs" wrap="nowrap">
-                          <Progress value={u.avg_mastery_pct} style={{ flex: 1 }} />
-                          <Text size="xs" c="dimmed" w={42} ta="right">
-                            {u.avg_mastery_pct}%
-                          </Text>
-                        </Group>
-                      </Table.Td>
-                      <Table.Td>{u.lectures_started}</Table.Td>
-                      <Table.Td>{u.attempts}</Table.Td>
-                    </Table.Tr>
-                  ))}
-                </Table.Tbody>
-              </Table>
-            )}
-        </Stack>
-      </Container>
+      <div className="flex flex-col gap-5">
+        <h2 className="text-lg font-semibold">Рейтинг по среднему освоению</h2>
+        {loaded && users.length === 0 && (
+          <p className="text-sm text-muted-foreground">Пользователей пока нет</p>
+        )}
+        {users.length > 0 && (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-10">#</TableHead>
+                <TableHead>Имя</TableHead>
+                <TableHead className="w-[40%] min-w-40">Среднее освоение</TableHead>
+                <TableHead className="w-16 text-right">Лекций</TableHead>
+                <TableHead className="w-16 text-right">Попыток</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {users.map((u, i) => (
+                <TableRow key={u.name}>
+                  <TableCell className="text-muted-foreground">{i + 1}</TableCell>
+                  <TableCell className="font-semibold">{u.name}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Progress className="flex-1" value={u.avg_mastery_pct} />
+                      <span className="w-10 text-right text-xs text-muted-foreground">
+                        {u.avg_mastery_pct}%
+                      </span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right">{u.lectures_started}</TableCell>
+                  <TableCell className="text-right">{u.attempts}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </div>
     </PageShell>
   );
 }
