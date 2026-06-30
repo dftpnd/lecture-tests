@@ -20,6 +20,7 @@ import { api, type Lecture, type Question, type Progress as Prog } from "./api";
 import { Quiz } from "./Quiz";
 import { History } from "./History";
 import { useLectures } from "./useLectures";
+import { useTopics } from "./useTopics";
 
 export function TestPage() {
   const [name, setName] = useState(localStorage.getItem("user") ?? "");
@@ -33,6 +34,7 @@ export function TestPage() {
   const [authBusy, setAuthBusy] = useState(false);
   const [authError, setAuthError] = useState("");
   const { lectures, refresh } = useLectures();
+  const { topics } = useTopics();
   const [progress, setProgress] = useState<Prog[]>([]);
   const [activeQuiz, setActiveQuiz] = useState<{
     lecture: Lecture;
@@ -75,8 +77,11 @@ export function TestPage() {
     setAuthError("");
     setAuthBusy(true);
     try {
-      await api.login(name.trim(), password);
-      localStorage.setItem("user", name.trim());
+      // Use the canonical name the backend stores, not the typed casing,
+      // so the identity stays stable however the login was capitalised.
+      const user = await api.login(name.trim(), password);
+      localStorage.setItem("user", user.name);
+      setName(user.name);
       setLoggedIn(true);
     } catch {
       // Backend returns 401 only for a wrong password (login mode).
@@ -200,6 +205,44 @@ export function TestPage() {
 
   const masteryByLecture = new Map(progress.map((p) => [p.lecture_id, p]));
 
+  // Group lectures by topic, ordered the same way topics come from the API (by name).
+  const orderedTopics = topics.filter((t) => lectures.some((l) => l.topic_id === t.id));
+  const orphanLectures = lectures.filter((l) => !topics.some((t) => t.id === l.topic_id));
+
+  function renderLectureCard(lec: Lecture) {
+    const p = masteryByLecture.get(lec.id);
+    const ready = lec.status === "done";
+    return (
+      <Card key={lec.id} withBorder>
+        <Group justify="space-between">
+          <div style={{ flex: 1 }}>
+            <Text fw={600}>{lec.title}</Text>
+            {ready ? (
+              <Progress value={p?.mastery_pct ?? 0} mt="xs" />
+            ) : (
+              <Badge color={lec.status === "failed" ? "red" : "yellow"}>{lec.status}</Badge>
+            )}
+            {p && (
+              <Text size="xs" c="dimmed" mt={4}>
+                Освоено {p.mastery_pct}% · попыток: {p.attempts}
+              </Text>
+            )}
+          </div>
+          <Group gap="xs">
+            {p && p.attempts > 0 && (
+              <Button variant="light" onClick={() => setHistoryLecture(lec)}>
+                История
+              </Button>
+            )}
+            <Button disabled={!ready} loading={generating === lec.id} onClick={() => startTest(lec)}>
+              Начать тест
+            </Button>
+          </Group>
+        </Group>
+      </Card>
+    );
+  }
+
   return (
     <AppShell header={{ height: 56 }} padding="md">
       <AppShell.Header>
@@ -226,39 +269,24 @@ export function TestPage() {
                 Лекций пока нет. <Link to="/upload">Загрузите первую →</Link>
               </Text>
             )}
-            {lectures.map((lec) => {
-              const p = masteryByLecture.get(lec.id);
-              const ready = lec.status === "done";
-              return (
-                <Card key={lec.id} withBorder>
-                  <Group justify="space-between">
-                    <div style={{ flex: 1 }}>
-                      <Text fw={600}>{lec.title}</Text>
-                      {ready ? (
-                        <Progress value={p?.mastery_pct ?? 0} mt="xs" />
-                      ) : (
-                        <Badge color={lec.status === "failed" ? "red" : "yellow"}>{lec.status}</Badge>
-                      )}
-                      {p && (
-                        <Text size="xs" c="dimmed" mt={4}>
-                          Освоено {p.mastery_pct}% · попыток: {p.attempts}
-                        </Text>
-                      )}
-                    </div>
-                    <Group gap="xs">
-                      {p && p.attempts > 0 && (
-                        <Button variant="light" onClick={() => setHistoryLecture(lec)}>
-                          История
-                        </Button>
-                      )}
-                      <Button disabled={!ready} loading={generating === lec.id} onClick={() => startTest(lec)}>
-                        Начать тест
-                      </Button>
-                    </Group>
-                  </Group>
-                </Card>
-              );
-            })}
+            {orderedTopics.map((topic) => (
+              <Stack key={topic.id} gap="sm">
+                <Title order={5} c="dimmed">
+                  {topic.name}
+                </Title>
+                {lectures
+                  .filter((l) => l.topic_id === topic.id)
+                  .map((lec) => renderLectureCard(lec))}
+              </Stack>
+            ))}
+            {orphanLectures.length > 0 && (
+              <Stack gap="sm">
+                <Title order={5} c="dimmed">
+                  Без темы
+                </Title>
+                {orphanLectures.map((lec) => renderLectureCard(lec))}
+              </Stack>
+            )}
           </Stack>
         </Container>
       </AppShell.Main>

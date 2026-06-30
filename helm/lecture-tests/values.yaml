@@ -3,7 +3,7 @@
 images:
   api:
     repository: lecture-tests-api
-    tag: 1.5.0
+    tag: 1.8.1
     pullPolicy: IfNotPresent
   worker:
     repository: lecture-tests-worker
@@ -11,7 +11,7 @@ images:
     pullPolicy: IfNotPresent
   frontend:
     repository: lecture-tests-frontend
-    tag: 1.6.0
+    tag: 1.9.2
     pullPolicy: IfNotPresent
 
 # vLLM is reused from the existing cluster deployment — point at its service/URL.
@@ -42,13 +42,16 @@ secret:
 
 minio:
   image: minio/minio:latest
-  accessKey: minioadmin
-  secretKey: minioadmin       # override in prod (or use a SealedSecret)
+  accessKey: lt-4775ac6b
+  secretKey: T8G4xPol3zi0b6dRBnmQlt45QoUj0T   # rotated off default; MinIO S3 API is exposed externally
   bucket: lectures
   storage: 50Gi
   # Browser-reachable address for presigned upload/download URLs.
   # Must be externally accessible (NodePort/Ingress/LB), NOT the in-cluster name.
-  publicEndpoint: "192.168.1.116:30900"
+  # External IP, router-forwards WAN :443 -> 192.168.1.116:30900 (plain HTTP on
+  # 443, since secure=false). Port is part of the presigned signature, so it must
+  # match exactly what the browser connects to.
+  publicEndpoint: "85.23.152.89:443"
 
 worker:
   replicas: 1                 # one GPU job at a time

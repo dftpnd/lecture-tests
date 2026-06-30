@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_session
@@ -10,10 +10,18 @@ from app.security import hash_password, verify_password
 router = APIRouter(prefix="/users", tags=["users"])
 
 
+async def find_user_by_name(session: AsyncSession, name: str) -> User | None:
+    """Look a user up by login name, ignoring case (and surrounding spaces)."""
+    name = name.strip()
+    return (
+        await session.execute(select(User).where(func.lower(User.name) == name.lower()))
+    ).scalar_one_or_none()
+
+
 async def get_or_create_user(session: AsyncSession, name: str) -> User:
     """Used by post-login actions; the user already exists by then."""
     name = name.strip()
-    user = (await session.execute(select(User).where(User.name == name))).scalar_one_or_none()
+    user = await find_user_by_name(session, name)
     if user is None:
         user = User(name=name)
         session.add(user)
@@ -25,9 +33,7 @@ async def get_or_create_user(session: AsyncSession, name: str) -> User:
 @router.get("/check", response_model=UserStatus)
 async def check(name: str, session: AsyncSession = Depends(get_session)):
     """Tells the login form whether to register, prompt a password, or set one up."""
-    user = (
-        await session.execute(select(User).where(User.name == name.strip()))
-    ).scalar_one_or_none()
+    user = await find_user_by_name(session, name)
     return UserStatus(exists=user is not None, has_password=bool(user and user.password_hash))
 
 
@@ -42,7 +48,7 @@ async def login(payload: UserIn, session: AsyncSession = Depends(get_session)):
     if not name or not password:
         raise HTTPException(status_code=422, detail="Имя и пароль обязательны")
 
-    user = (await session.execute(select(User).where(User.name == name))).scalar_one_or_none()
+    user = await find_user_by_name(session, name)
 
     if user is None:
         # New user — register with the chosen password.

@@ -17,6 +17,11 @@ class Settings(BaseSettings):
     minio_bucket: str = "lectures"
     minio_secure: bool = False
     minio_public_endpoint: str = "localhost:9000"
+    # Set explicitly so presigned-URL generation never makes a (blocking)
+    # GetBucketLocation call — the public endpoint may be unreachable from the
+    # API pod (e.g. an external IP with no NAT hairpin), which would stall the
+    # async event loop. MinIO's default region is us-east-1.
+    minio_region: str = "us-east-1"
 
     # vLLM
     vllm_base_url: str = "http://192.168.1.116:30800/v1"
@@ -34,7 +39,7 @@ class Settings(BaseSettings):
     auto_create_tables: bool = True
 
     # Only these users (by login name) may upload lecture videos. Comma-separated.
-    upload_allowed_users: str = "dft,li"
+    upload_allowed_users: str = "dft,li,Гоша"
 
     @property
     def upload_allowlist(self) -> set[str]:

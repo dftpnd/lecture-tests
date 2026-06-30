@@ -34,15 +34,31 @@ class UserProgressSummary(BaseModel):
     created_at: datetime
 
 
+# --- Topics ---
+class TopicCreate(BaseModel):
+    user_name: str  # creator's login name; must be on the upload allowlist
+    name: str
+
+
+class TopicOut(BaseModel):
+    id: int
+    name: str
+
+    class Config:
+        from_attributes = True
+
+
 # --- Lectures ---
 class LectureCreate(BaseModel):
     user_name: str   # uploader's login name; must be on the upload allowlist
+    topic_id: int    # which topic the lecture belongs to
     title: str
     video_path: str  # MinIO key returned after the presigned upload
 
 
 class LectureOut(BaseModel):
     id: int
+    topic_id: int
     title: str
     status: str
     summary: str | None = None

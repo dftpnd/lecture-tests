@@ -10,14 +10,19 @@ _client = Minio(
     access_key=settings.minio_access_key,
     secret_key=settings.minio_secret_key,
     secure=settings.minio_secure,
+    region=settings.minio_region,
 )
 
-# Public client: generates presigned URLs reachable from the browser.
+# Public client: generates presigned URLs reachable from the browser. region is
+# pinned so presigning stays purely local — the public endpoint may not be
+# reachable from here (external IP, no hairpin), and a GetBucketLocation lookup
+# would block the event loop.
 _public_client = Minio(
     settings.minio_public_endpoint,
     access_key=settings.minio_access_key,
     secret_key=settings.minio_secret_key,
     secure=settings.minio_secure,
+    region=settings.minio_region,
 )
 
 
@@ -45,3 +50,19 @@ def download(object_key: str, file_path: str) -> None:
 
 def upload(object_key: str, file_path: str, content_type: str = "application/octet-stream") -> None:
     _client.fput_object(settings.minio_bucket, object_key, file_path, content_type=content_type)
+
+
+def upload_stream(object_key: str, data, content_type: str = "application/octet-stream") -> None:
+    """Stream a file-like object of unknown length into MinIO (multipart).
+
+    Blocking; call via run_in_threadpool from async code so the event loop
+    isn't stalled for the duration of the upload.
+    """
+    _client.put_object(
+        settings.minio_bucket,
+        object_key,
+        data,
+        length=-1,
+        content_type=content_type,
+        part_size=10 * 1024 * 1024,
+    )

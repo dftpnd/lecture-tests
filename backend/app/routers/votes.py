@@ -3,8 +3,8 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_session
-from app.models import QuestionVote, QuizSet, User
-from app.routers.users import get_or_create_user
+from app.models import QuestionVote, QuizSet
+from app.routers.users import find_user_by_name, get_or_create_user
 from app.schemas import QuestionVotes, VoteIn
 
 router = APIRouter(prefix="/quiz-sets", tags=["votes"])
@@ -50,9 +50,7 @@ async def list_votes(
 
     mine: dict[int, str] = {}
     if user_name:
-        user = (
-            await session.execute(select(User).where(User.name == user_name.strip()))
-        ).scalar_one_or_none()
+        user = await find_user_by_name(session, user_name)
         if user is not None:
             mine_rows = (
                 await session.execute(

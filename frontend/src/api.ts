@@ -1,7 +1,18 @@
 const BASE = "/api";
 
+export interface User {
+  id: number;
+  name: string;
+}
+
+export interface Topic {
+  id: number;
+  name: string;
+}
+
 export interface Lecture {
   id: number;
+  topic_id: number;
   title: string;
   status: string;
   summary?: string | null;
@@ -63,21 +74,32 @@ async function json<T>(r: Response): Promise<T> {
   return r.json();
 }
 
-// PUT a (possibly large) file with upload-progress reporting. fetch() can't
-// report upload progress, so we use XHR. Rejects on non-2xx / network error.
-function putWithProgress(url: string, file: File, onProgress: (pct: number) => void): Promise<void> {
+// POST a multipart form with upload-progress reporting. fetch() can't report
+// upload progress, so we use XHR. Resolves with the parsed JSON response.
+function postFormWithProgress<T>(
+  url: string,
+  form: FormData,
+  onProgress: (pct: number) => void,
+): Promise<T> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.open("PUT", url);
+    xhr.open("POST", url);
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
     };
-    xhr.onload = () =>
-      xhr.status >= 200 && xhr.status < 300
-        ? resolve()
-        : reject(new Error(`загрузка в хранилище не удалась: HTTP ${xhr.status}`));
-    xhr.onerror = () => reject(new Error("сетевая ошибка при загрузке в хранилище"));
-    xhr.send(file);
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          resolve(JSON.parse(xhr.responseText) as T);
+        } catch {
+          reject(new Error("некорректный ответ сервера"));
+        }
+      } else {
+        reject(new Error(xhr.responseText || `HTTP ${xhr.status}`));
+      }
+    };
+    xhr.onerror = () => reject(new Error("сетевая ошибка при загрузке"));
+    xhr.send(form);
   });
 }
 
@@ -95,28 +117,33 @@ export const api = {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name, password }),
-    }).then(json),
+    }).then((r) => json<User>(r)),
 
-  // 1. get presigned URL  2. PUT video to MinIO (with progress)  3. register lecture.
+  topics: () => fetch(`${BASE}/topics`).then((r) => json<Topic[]>(r)),
+
+  createTopic: (name: string, userName: string) =>
+    fetch(`${BASE}/topics`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_name: userName, name }),
+    }).then((r) => json<Topic>(r)),
+
+  // Upload the video straight through the API (which streams it into MinIO
+  // server-side and registers the lecture). Keeps MinIO off the public network.
   // Only allow-listed users may upload; the backend enforces it by login name.
   async upload(
     file: File,
     title: string,
+    topicId: number,
     userName: string,
     onProgress?: (pct: number) => void,
   ): Promise<Lecture> {
-    const { upload_url, object_key } = await fetch(
-      `${BASE}/lectures/upload-url?filename=${encodeURIComponent(file.name)}` +
-        `&user_name=${encodeURIComponent(userName)}`,
-    ).then((r) => json<{ upload_url: string; object_key: string }>(r));
-
-    await putWithProgress(upload_url, file, onProgress ?? (() => {}));
-
-    return fetch(`${BASE}/lectures`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user_name: userName, title, video_path: object_key }),
-    }).then((r) => json<Lecture>(r));
+    const form = new FormData();
+    form.append("file", file);
+    form.append("title", title);
+    form.append("topic_id", String(topicId));
+    form.append("user_name", userName);
+    return postFormWithProgress<Lecture>(`${BASE}/lectures/upload`, form, onProgress ?? (() => {}));
   },
 
   lectures: () => fetch(`${BASE}/lectures`).then((r) => json<Lecture[]>(r)),

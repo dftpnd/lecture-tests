@@ -3,8 +3,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_session
-from app.models import Attempt, Lecture, User
-from app.routers.users import get_or_create_user
+from app.models import Attempt, Lecture
+from app.routers.users import find_user_by_name, get_or_create_user
 from app.schemas import AttemptHistory, AttemptIn, AttemptOut, LectureProgress
 
 router = APIRouter(tags=["attempts"])
@@ -31,7 +31,7 @@ async def submit_attempt(payload: AttemptIn, session: AsyncSession = Depends(get
 @router.get("/users/{name}/progress", response_model=list[LectureProgress])
 async def user_progress(name: str, session: AsyncSession = Depends(get_session)):
     """Variant B: per-lecture history + mastery for the progress bars."""
-    user = (await session.execute(select(User).where(User.name == name.strip()))).scalar_one_or_none()
+    user = await find_user_by_name(session, name)
     if user is None:
         raise HTTPException(404, "user not found")
 
@@ -68,7 +68,7 @@ async def user_attempts(
     session: AsyncSession = Depends(get_session),
 ):
     """Full per-question history for review (newest first), optionally one lecture."""
-    user = (await session.execute(select(User).where(User.name == name.strip()))).scalar_one_or_none()
+    user = await find_user_by_name(session, name)
     if user is None:
         raise HTTPException(404, "user not found")
 

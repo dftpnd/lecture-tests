@@ -27,10 +27,23 @@ class User(Base):
     attempts: Mapped[list["Attempt"]] = relationship(back_populates="user")
 
 
+class Topic(Base):
+    """A subject a lecture belongs to (e.g. a course). Lectures are grouped by it."""
+
+    __tablename__ = "topics"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(200), unique=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    lectures: Mapped[list["Lecture"]] = relationship(back_populates="topic")
+
+
 class Lecture(Base):
     __tablename__ = "lectures"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    topic_id: Mapped[int] = mapped_column(ForeignKey("topics.id"), index=True)
     title: Mapped[str] = mapped_column(String(300))
     # pending -> extracting -> transcribing -> structuring -> done | failed
     status: Mapped[str] = mapped_column(String(20), default="pending", index=True)
@@ -40,6 +53,7 @@ class Lecture(Base):
     error: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
+    topic: Mapped[Topic] = relationship(back_populates="lectures")
     attempts: Mapped[list["Attempt"]] = relationship(back_populates="lecture")
     quiz_sets: Mapped[list["QuizSet"]] = relationship(back_populates="lecture")
 
