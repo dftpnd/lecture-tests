@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import {
-  AppShell,
   Button,
   Container,
   Group,
@@ -12,6 +11,7 @@ import {
 } from "@mantine/core";
 import { Link } from "react-router-dom";
 import { api, type UserProgressSummary } from "./api";
+import { PageShell } from "./PageShell";
 
 export function UsersPage() {
   const [users, setUsers] = useState<UserProgressSummary[]>([]);
@@ -26,19 +26,16 @@ export function UsersPage() {
   }, []);
 
   return (
-    <AppShell header={{ height: 56 }} padding="md">
-      <AppShell.Header>
-        <Group h="100%" px="md" justify="space-between">
-          <Title order={4}>Пользователи и прогресс</Title>
-          <Button component={Link} to="/" variant="light">
-            К тестам →
-          </Button>
-        </Group>
-      </AppShell.Header>
-
-      <AppShell.Main>
-        <Container size="md">
-          <Stack gap="lg">
+    <PageShell
+      title="Пользователи и прогресс"
+      actions={
+        <Button component={Link} to="/" variant="light" size="xs">
+          К тестам →
+        </Button>
+      }
+    >
+      <Container size="md" pt={26}>
+        <Stack gap="lg">
             <Title order={3}>Рейтинг по среднему освоению</Title>
             {loaded && users.length === 0 && <Text c="dimmed">Пользователей пока нет</Text>}
             {users.length > 0 && (
@@ -74,9 +71,8 @@ export function UsersPage() {
                 </Table.Tbody>
               </Table>
             )}
-          </Stack>
-        </Container>
-      </AppShell.Main>
-    </AppShell>
+        </Stack>
+      </Container>
+    </PageShell>
   );
 }

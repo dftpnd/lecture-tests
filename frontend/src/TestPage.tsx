@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import {
   Alert,
-  AppShell,
   Badge,
   Button,
   Card,
@@ -21,6 +20,8 @@ import { Quiz } from "./Quiz";
 import { History } from "./History";
 import { useLectures } from "./useLectures";
 import { useTopics } from "./useTopics";
+import { PwaInstall } from "./PwaInstall";
+import { PageShell } from "./PageShell";
 
 export function TestPage() {
   const [name, setName] = useState(localStorage.getItem("user") ?? "");
@@ -198,6 +199,7 @@ export function TestPage() {
               </Group>
             </>
           )}
+          <PwaInstall />
         </Stack>
       </Container>
     );
@@ -244,27 +246,24 @@ export function TestPage() {
   }
 
   return (
-    <AppShell header={{ height: 56 }} padding="md">
-      <AppShell.Header>
-        <Group h="100%" px="md" justify="space-between">
-          <Title order={4}>Лекции → Тесты</Title>
-          <Group>
-            <Button component={Link} to="/users" variant="subtle">
-              Пользователи
-            </Button>
-            <Button component={Link} to="/upload" variant="light">
-              Загрузить лекцию
-            </Button>
-            <Badge variant="light">{name}</Badge>
-          </Group>
-        </Group>
-      </AppShell.Header>
-
-      <AppShell.Main>
-        <Container size="md">
-          <Stack gap="lg">
-            <Title order={3}>Выберите лекцию для теста</Title>
-            {lectures.length === 0 && (
+    <PageShell
+      title="Лекции → Тесты"
+      actions={
+        <>
+          <Button component={Link} to="/users" variant="subtle" size="xs">
+            Пользователи
+          </Button>
+          <Button component={Link} to="/upload" variant="light" size="xs">
+            Загрузить лекцию
+          </Button>
+          <Badge variant="light">{name}</Badge>
+        </>
+      }
+    >
+      <Container size="md" pt={26}>
+        <Stack gap="lg">
+          <Title order={3}>Выберите лекцию для теста</Title>
+          {lectures.length === 0 && (
               <Text c="dimmed">
                 Лекций пока нет. <Link to="/upload">Загрузите первую →</Link>
               </Text>
@@ -287,9 +286,9 @@ export function TestPage() {
                 {orphanLectures.map((lec) => renderLectureCard(lec))}
               </Stack>
             )}
+            <PwaInstall />
           </Stack>
         </Container>
-      </AppShell.Main>
 
       {activeQuiz && (
         <Quiz
@@ -309,6 +308,6 @@ export function TestPage() {
           onClose={() => setHistoryLecture(null)}
         />
       )}
-    </AppShell>
+    </PageShell>
   );
 }

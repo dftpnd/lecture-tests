@@ -1,7 +1,6 @@
 import { useState } from "react";
 import {
   Alert,
-  AppShell,
   Badge,
   Button,
   Card,
@@ -20,6 +19,7 @@ import { Link } from "react-router-dom";
 import { api } from "./api";
 import { useLectures } from "./useLectures";
 import { useTopics } from "./useTopics";
+import { PageShell } from "./PageShell";
 
 const statusColor = (s: string) => (s === "done" ? "green" : s === "failed" ? "red" : "yellow");
 
@@ -79,19 +79,16 @@ export function UploadPage() {
   }
 
   return (
-    <AppShell header={{ height: 56 }} padding="md">
-      <AppShell.Header>
-        <Group h="100%" px="md" justify="space-between">
-          <Title order={4}>Загрузка лекций</Title>
-          <Button component={Link} to="/" variant="light">
-            К тестам →
-          </Button>
-        </Group>
-      </AppShell.Header>
-
-      <AppShell.Main>
-        <Container size="md">
-          <Stack gap="lg">
+    <PageShell
+      title="Загрузка лекций"
+      actions={
+        <Button component={Link} to="/" variant="light" size="xs">
+          К тестам →
+        </Button>
+      }
+    >
+      <Container size="md" pt={26}>
+        <Stack gap="lg">
             <Alert color="blue" title="Перед загрузкой">
               Лекции принимаются <b>только на русском языке</b>.
             </Alert>
@@ -186,9 +183,8 @@ export function UploadPage() {
                 </Group>
               </Card>
             ))}
-          </Stack>
-        </Container>
-      </AppShell.Main>
-    </AppShell>
+        </Stack>
+      </Container>
+    </PageShell>
   );
 }

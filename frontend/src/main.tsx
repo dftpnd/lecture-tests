@@ -18,3 +18,12 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     </MantineProvider>
   </React.StrictMode>,
 );
+
+// Register the PWA service worker (offline shell + "Add to Home Screen").
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(() => {
+      /* service worker is a progressive enhancement; ignore failures */
+    });
+  });
+}

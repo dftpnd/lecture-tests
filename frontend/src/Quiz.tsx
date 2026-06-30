@@ -111,7 +111,11 @@ export function Quiz({ lecture, questions, quizSetId, userName, onClose, onSubmi
       title={`Тест: ${lecture.title}`}
       size="lg"
       fullScreen
-      styles={{ body: { paddingBottom: 0 } }}
+      styles={{
+        // Keep the header clear of the iOS notch / status bar in standalone mode.
+        header: { paddingTop: "calc(env(safe-area-inset-top) + var(--mantine-spacing-sm))" },
+        body: { paddingBottom: 0 },
+      }}
     >
       {result ? (
         <Stack>

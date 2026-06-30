@@ -4,6 +4,43 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>Лекции → Тесты</title>
+
+    <!-- PWA -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#0F2040" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+
+    <!-- iOS "Add to Home Screen" -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <!-- "default" lets iOS reserve the status-bar area instead of drawing the
+         app underneath it (which glued the header to the very top / notch). -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Лекции→Тесты" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+    <!-- Respect the notch / home-indicator safe areas in standalone mode. -->
+    <style>
+      .mantine-AppShell-header {
+        padding-top: env(safe-area-inset-top);
+        padding-left: env(safe-area-inset-left);
+        padding-right: env(safe-area-inset-right);
+      }
+      /* Opaque, distinct background for the fixed top bar so page content
+         never shows through it. Uses Mantine's color-scheme attribute
+         (broad browser support) instead of the light-dark() function. */
+      [data-mantine-color-scheme="light"] .mantine-AppShell-header {
+        background-color: var(--mantine-color-gray-1);
+      }
+      [data-mantine-color-scheme="dark"] .mantine-AppShell-header {
+        background-color: var(--mantine-color-dark-6);
+      }
+      .mantine-AppShell-main {
+        padding-left: max(var(--app-shell-padding, 0px), env(safe-area-inset-left));
+        padding-right: max(var(--app-shell-padding, 0px), env(safe-area-inset-right));
+        padding-bottom: max(var(--app-shell-padding, 0px), env(safe-area-inset-bottom));
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>
