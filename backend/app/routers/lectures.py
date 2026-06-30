@@ -1,3 +1,4 @@
+import re
 import uuid
 
 from arq import create_pool
@@ -10,10 +11,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.db import get_session
 from app.models import Lecture, Topic
-from app.schemas import LectureCreate, LectureOut, PresignedUpload
+from app.schemas import LectureCreate, LectureOut, PresignedUpload, YoutubeIngest, YoutubeInfo
 from app import storage
 
 router = APIRouter(prefix="/lectures", tags=["lectures"])
+
+# Cheap host check only — the real validation (reachable, public, downloadable)
+# happens in the worker, which surfaces failures via the lecture's status/error.
+_YOUTUBE_URL = re.compile(
+    r"^https?://(www\.|m\.)?(youtube\.com/(watch\?|live/|shorts/)|youtu\.be/)", re.IGNORECASE
+)
 
 
 def require_uploader(user_name: str) -> str:
@@ -84,6 +91,60 @@ async def upload_lecture(
 
     redis = await create_pool(RedisSettings.from_dsn(settings.redis_url))
     await redis.enqueue_job("process_video", lecture.id, object_key)
+    return lecture
+
+
+def _fetch_youtube_info(url: str) -> dict:
+    """Read-only metadata lookup (no download). Blocking — call in a threadpool."""
+    import yt_dlp
+
+    opts = {
+        "quiet": True,
+        "no_warnings": True,
+        "skip_download": True,
+        "noplaylist": True,
+        "socket_timeout": 15,
+    }
+    with yt_dlp.YoutubeDL(opts) as ydl:
+        info = ydl.extract_info(url, download=False)
+    return {
+        "title": info.get("title") or "",
+        "duration": info.get("duration"),
+        "uploader": info.get("uploader"),
+    }
+
+
+@router.get("/youtube/info", response_model=YoutubeInfo)
+async def youtube_info(url: str, user_name: str):
+    """Preview a YouTube URL (title/duration) so the uploader confirms before ingesting."""
+    require_uploader(user_name)
+    url = url.strip()
+    if not _YOUTUBE_URL.match(url):
+        raise HTTPException(422, "ожидается ссылка на видео YouTube")
+    try:
+        return await run_in_threadpool(_fetch_youtube_info, url)
+    except Exception as exc:  # noqa: BLE001 — surface a readable error to the form
+        raise HTTPException(400, f"не удалось прочитать видео: {exc}")
+
+
+@router.post("/youtube", response_model=LectureOut)
+async def ingest_youtube(payload: YoutubeIngest, session: AsyncSession = Depends(get_session)):
+    """Register a lecture from a YouTube URL; the worker downloads it server-side."""
+    require_uploader(payload.user_name)
+    url = payload.url.strip()
+    if not _YOUTUBE_URL.match(url):
+        raise HTTPException(422, "ожидается ссылка на видео YouTube")
+    if await session.get(Topic, payload.topic_id) is None:
+        raise HTTPException(404, "тема не найдена")
+
+    title = (payload.title or "").strip() or "Видео с YouTube"
+    lecture = Lecture(topic_id=payload.topic_id, title=title, status="pending")
+    session.add(lecture)
+    await session.commit()
+    await session.refresh(lecture)
+
+    redis = await create_pool(RedisSettings.from_dsn(settings.redis_url))
+    await redis.enqueue_job("process_video", lecture.id, source_url=url)
     return lecture
 
 

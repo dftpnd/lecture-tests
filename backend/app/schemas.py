@@ -73,6 +73,21 @@ class PresignedUpload(BaseModel):
     object_key: str
 
 
+class YoutubeIngest(BaseModel):
+    user_name: str  # uploader's login name; must be on the upload allowlist
+    topic_id: int   # which topic the lecture belongs to
+    url: str        # YouTube watch/share URL; the worker downloads it server-side
+    title: str | None = None  # optional; a real title is derived from the summary later
+
+
+class YoutubeInfo(BaseModel):
+    """Lightweight metadata so the uploader can confirm the right video first."""
+
+    title: str
+    duration: int | None = None  # seconds
+    uploader: str | None = None
+
+
 # --- Quiz ---
 class Question(BaseModel):
     question: str
@@ -83,8 +98,28 @@ class Question(BaseModel):
 class Quiz(BaseModel):
     lecture_id: int
     quiz_set_id: int  # which set was served; echoed back when submitting the attempt
+    # A lecture's sets form an ordered pool; version is this set's 1-based position
+    # in it, total_versions the pool size. Drives the shareable URL /t/<lec>/<ver>.
+    version: int
+    total_versions: int
     questions: list[Question]
     cached: bool = False  # True = reused an existing set, False = generated now
+
+
+class SharedQuiz(BaseModel):
+    """A specific generation of a lecture's test — the shareable-link target.
+
+    Identified in the URL by (lecture_id, version): version is the set's 1-based
+    position among the lecture's sets ordered by creation, total_versions the
+    number of generations available to switch between.
+    """
+
+    lecture_id: int
+    lecture_title: str  # the set carries no title of its own; pull it from the lecture
+    quiz_set_id: int
+    version: int
+    total_versions: int
+    questions: list[Question]
 
 
 # --- Question votes ---

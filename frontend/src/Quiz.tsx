@@ -5,18 +5,23 @@ import {
   Group,
   Modal,
   Progress,
+  Select,
   Stack,
   Text,
   Title,
   UnstyledButton,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { api, type Lecture, type Question, type QuestionVotes, type Reaction } from "./api";
+import { api, type Question, type QuestionVotes, type Reaction } from "./api";
 
 interface Props {
-  lecture: Lecture;
+  lectureId: number;
+  lectureTitle: string;
   questions: Question[];
   quizSetId: number;
+  version: number;
+  totalVersions: number;
+  onChangeVersion: (version: number) => void;
   userName: string;
   onClose: () => void;
   onSubmitted: () => void;
@@ -28,7 +33,18 @@ interface Result {
   wrong: { question: string; chosen: string; correct: string }[];
 }
 
-export function Quiz({ lecture, questions, quizSetId, userName, onClose, onSubmitted }: Props) {
+export function Quiz({
+  lectureId,
+  lectureTitle,
+  questions,
+  quizSetId,
+  version,
+  totalVersions,
+  onChangeVersion,
+  userName,
+  onClose,
+  onSubmitted,
+}: Props) {
   // answers[i] = chosen option index, or -1 if unanswered
   const [answers, setAnswers] = useState<number[]>(() => questions.map(() => -1));
   const [current, setCurrent] = useState(0);
@@ -53,6 +69,29 @@ export function Quiz({ lecture, questions, quizSetId, userName, onClose, onSubmi
       notifications.show({ message: `Не удалось проголосовать: ${e}`, color: "red" });
     }
   }
+
+  // Generation switcher: each version is a different set (possibly a different
+  // number of questions). Switching just opens another version by URL.
+  const versionBar = (
+    <Group gap="xs" align="center">
+      <Text size="sm" c="dimmed">
+        Генерация
+      </Text>
+      <Select
+        size="xs"
+        w={70}
+        value={String(version)}
+        onChange={(v) => v && Number(v) !== version && onChangeVersion(Number(v))}
+        data={Array.from({ length: totalVersions }, (_, i) => String(i + 1))}
+        disabled={totalVersions <= 1}
+        allowDeselect={false}
+        comboboxProps={{ withinPortal: false }}
+      />
+      <Text size="sm" c="dimmed">
+        / {totalVersions} · {questions.length} вопросов
+      </Text>
+    </Group>
+  );
 
   const q = questions[current];
   const chosen = answers[current]; // -1 until this question is answered
@@ -79,7 +118,7 @@ export function Quiz({ lecture, questions, quizSetId, userName, onClose, onSubmi
     try {
       await api.submitAttempt({
         user_name: userName,
-        lecture_id: lecture.id,
+        lecture_id: lectureId,
         quiz_set_id: quizSetId,
         score,
         total: questions.length,
@@ -108,7 +147,7 @@ export function Quiz({ lecture, questions, quizSetId, userName, onClose, onSubmi
     <Modal
       opened
       onClose={onClose}
-      title={`Тест: ${lecture.title}`}
+      title={`Тест: ${lectureTitle}`}
       size="lg"
       fullScreen
       styles={{
@@ -119,6 +158,7 @@ export function Quiz({ lecture, questions, quizSetId, userName, onClose, onSubmi
     >
       {result ? (
         <Stack>
+          {versionBar}
           <Title order={3}>
             Результат: {result.score} / {result.total}
           </Title>
@@ -142,6 +182,7 @@ export function Quiz({ lecture, questions, quizSetId, userName, onClose, onSubmi
         </Stack>
       ) : (
         <Stack>
+          {versionBar}
           <Progress value={(current / questions.length) * 100} />
           <Text c="dimmed" size="sm">
             Вопрос {current + 1} / {questions.length}

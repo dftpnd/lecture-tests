@@ -25,6 +25,15 @@ export interface Question {
   correct_index: number;
 }
 
+export interface SharedQuiz {
+  lecture_id: number;
+  lecture_title: string;
+  quiz_set_id: number;
+  version: number;
+  total_versions: number;
+  questions: Question[];
+}
+
 export interface Progress {
   lecture_id: number;
   title: string;
@@ -146,14 +155,46 @@ export const api = {
     return postFormWithProgress<Lecture>(`${BASE}/lectures/upload`, form, onProgress ?? (() => {}));
   },
 
+  // Preview a YouTube URL before ingesting so the user confirms the right video.
+  youtubeInfo: (url: string, userName: string) =>
+    fetch(
+      `${BASE}/lectures/youtube/info?url=${encodeURIComponent(url)}&user_name=${encodeURIComponent(userName)}`,
+    ).then((r) => json<{ title: string; duration: number | null; uploader: string | null }>(r)),
+
+  // Register a lecture from a YouTube URL; the server downloads it and runs the
+  // same pipeline. Only allow-listed users may do this (enforced by the backend).
+  uploadYoutube: (url: string, topicId: number, userName: string): Promise<Lecture> =>
+    fetch(`${BASE}/lectures/youtube`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url, topic_id: topicId, user_name: userName }),
+    }).then((r) => json<Lecture>(r)),
+
   lectures: () => fetch(`${BASE}/lectures`).then((r) => json<Lecture[]>(r)),
 
   quiz: (lectureId: number, userName: string) =>
     fetch(`${BASE}/quiz/${lectureId}?user_name=${encodeURIComponent(userName)}`, {
       method: "POST",
     }).then((r) =>
-      json<{ lecture_id: number; quiz_set_id: number; questions: Question[]; cached: boolean }>(r),
+      json<{
+        lecture_id: number;
+        quiz_set_id: number;
+        version: number;
+        total_versions: number;
+        questions: Question[];
+        cached: boolean;
+      }>(r),
     ),
+
+  // Fetch one generation of a lecture's test by 1-based version — the /t/<lec>/<ver> target.
+  quizVersion: (lectureId: number, version: number) =>
+    fetch(`${BASE}/quiz/lectures/${lectureId}/versions/${version}`).then((r) =>
+      json<SharedQuiz>(r),
+    ),
+
+  // Resolve a legacy /t/<quizSetId> link to its (lecture, version).
+  quizSet: (quizSetId: number) =>
+    fetch(`${BASE}/quiz/sets/${quizSetId}`).then((r) => json<SharedQuiz>(r)),
 
   submitAttempt: (body: unknown) =>
     fetch(`${BASE}/attempts`, {

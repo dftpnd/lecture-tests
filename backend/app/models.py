@@ -45,7 +45,7 @@ class Lecture(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     topic_id: Mapped[int] = mapped_column(ForeignKey("topics.id"), index=True)
     title: Mapped[str] = mapped_column(String(300))
-    # pending -> extracting -> transcribing -> structuring -> done | failed
+    # pending -> [downloading ->] extracting -> transcribing -> structuring -> done | failed
     status: Mapped[str] = mapped_column(String(20), default="pending", index=True)
     video_path: Mapped[str | None] = mapped_column(String(500))       # MinIO object key
     transcript_path: Mapped[str | None] = mapped_column(String(500))  # MinIO object key

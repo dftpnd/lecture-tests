@@ -3,6 +3,7 @@
 Runs with concurrency=1 because a single GPU is shared (time-slicing) with vLLM.
 """
 
+import glob
 import os
 import tempfile
 
@@ -55,17 +56,49 @@ def _transcribe(audio_path: str) -> str:
     return "\n".join(seg.text.strip() for seg in segments)
 
 
-async def process_video(ctx: dict, lecture_id: int, video_key: str) -> None:
-    """Full pipeline for one uploaded lecture."""
+def _download_youtube(url: str, out_dir: str) -> str:
+    """Download just the audio track of a YouTube video into out_dir.
+
+    We only ever need the audio (Whisper transcribes it) and never store the
+    video, so grabbing bestaudio keeps the download small. Returns the path to
+    the downloaded media file. Needs ffmpeg (already in the worker image).
+    """
+    import yt_dlp
+
+    out_tmpl = os.path.join(out_dir, "source.%(ext)s")
+    opts = {
+        "format": "bestaudio/best",
+        "outtmpl": out_tmpl,
+        "quiet": True,
+        "no_warnings": True,
+        "noprogress": True,
+    }
+    with yt_dlp.YoutubeDL(opts) as ydl:
+        ydl.download([url])
+    files = glob.glob(os.path.join(out_dir, "source.*"))
+    if not files:
+        raise RuntimeError("не удалось скачать видео с YouTube")
+    return files[0]
+
+
+async def process_video(
+    ctx: dict, lecture_id: int, video_key: str | None = None, source_url: str | None = None
+) -> None:
+    """Full pipeline for one lecture, sourced from MinIO (upload) or YouTube (URL)."""
     try:
         with tempfile.TemporaryDirectory() as tmp:
-            video_path = os.path.join(tmp, "video.mp4")
             audio_path = os.path.join(tmp, "audio.wav")
             transcript_path = os.path.join(tmp, "transcript.txt")
 
+            if source_url:
+                await _set_status(lecture_id, "downloading")
+                media_path = _download_youtube(source_url, tmp)
+            else:
+                media_path = os.path.join(tmp, "video.mp4")
+                download(video_key, media_path)
+
             await _set_status(lecture_id, "extracting")
-            download(video_key, video_path)
-            _extract_audio(video_path, audio_path)
+            _extract_audio(media_path, audio_path)
 
             await _set_status(lecture_id, "transcribing")
             transcript = _transcribe(audio_path)

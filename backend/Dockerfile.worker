@@ -12,7 +12,7 @@ WORKDIR /app
 
 # Ubuntu 24.04 marks the system env as externally managed; this is a container.
 RUN pip install --no-cache-dir --break-system-packages \
-    "sqlalchemy[asyncio]" asyncpg alembic pydantic-settings minio arq httpx faster-whisper
+    "sqlalchemy[asyncio]" asyncpg alembic pydantic-settings minio arq httpx faster-whisper yt-dlp
 
 COPY . .
 

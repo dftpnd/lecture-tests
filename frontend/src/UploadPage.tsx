@@ -7,6 +7,7 @@ import {
   Container,
   Group,
   Progress,
+  SegmentedControl,
   Select,
   Stack,
   Text,
@@ -36,6 +37,15 @@ export function UploadPage() {
   const [uploading, setUploading] = useState(false);
   const [pct, setPct] = useState(0);
   const [currentFile, setCurrentFile] = useState("");
+  const [source, setSource] = useState<"file" | "link">("file");
+  const [youtubeUrl, setYoutubeUrl] = useState("");
+  const [submittingLink, setSubmittingLink] = useState(false);
+  const [checkingLink, setCheckingLink] = useState(false);
+  const [linkInfo, setLinkInfo] = useState<{
+    title: string;
+    duration: number | null;
+    uploader: string | null;
+  } | null>(null);
 
   const userName = localStorage.getItem("user") ?? "";
   const canUpload = UPLOAD_ALLOWED.includes(userName.trim());
@@ -56,6 +66,53 @@ export function UploadPage() {
     } finally {
       setCreatingTopic(false);
     }
+  }
+
+  async function handleCheckLink() {
+    const url = youtubeUrl.trim();
+    if (!url) return;
+    setCheckingLink(true);
+    setLinkInfo(null);
+    try {
+      const info = await api.youtubeInfo(url, userName);
+      setLinkInfo(info);
+    } catch (e) {
+      notifications.show({ message: `Не удалось прочитать ссылку: ${e}`, color: "red" });
+    } finally {
+      setCheckingLink(false);
+    }
+  }
+
+  async function handleYoutubeSubmit() {
+    if (!topicId) {
+      notifications.show({ message: "Сначала выберите тему для лекции", color: "yellow" });
+      return;
+    }
+    const url = youtubeUrl.trim();
+    if (!url) return;
+    setSubmittingLink(true);
+    try {
+      await api.uploadYoutube(url, Number(topicId), userName);
+      notifications.show({ message: "Ссылка принята, видео скачивается", color: "green" });
+      setYoutubeUrl("");
+      setLinkInfo(null);
+      refresh();
+    } catch (e) {
+      notifications.show({ message: `Не удалось добавить ссылку: ${e}`, color: "red" });
+    } finally {
+      setSubmittingLink(false);
+    }
+  }
+
+  // Format seconds as h:mm:ss / m:ss for the preview card.
+  function formatDuration(sec: number | null): string {
+    if (sec == null) return "—";
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    const s = sec % 60;
+    const mm = String(m).padStart(h ? 2 : 1, "0");
+    const ss = String(s).padStart(2, "0");
+    return h ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
   }
 
   async function handleDrop(files: File[]) {
@@ -142,19 +199,84 @@ export function UploadPage() {
               </Stack>
             )}
 
-            <Dropzone
-              onDrop={handleDrop}
-              accept={[MIME_TYPES.mp4, "video/x-matroska", "video/*"]}
-              maxFiles={1}
-              loading={uploading}
-              disabled={uploading || !canUpload}
-            >
-              <Text ta="center" py="xl">
-                {canUpload && !topicId
-                  ? "Сначала выберите тему, затем перетащите видео сюда"
-                  : "Перетащите видео лекции сюда или кликните для выбора"}
-              </Text>
-            </Dropzone>
+            {canUpload && (
+              <SegmentedControl
+                value={source}
+                onChange={(v) => setSource(v as "file" | "link")}
+                disabled={uploading || submittingLink}
+                data={[
+                  { label: "Загрузить файл", value: "file" },
+                  { label: "Ссылка на YouTube", value: "link" },
+                ]}
+              />
+            )}
+
+            {source === "file" ? (
+              <Dropzone
+                onDrop={handleDrop}
+                accept={[MIME_TYPES.mp4, "video/x-matroska", "video/*"]}
+                maxFiles={1}
+                loading={uploading}
+                disabled={uploading || !canUpload}
+              >
+                <Text ta="center" py="xl">
+                  {canUpload && !topicId
+                    ? "Сначала выберите тему, затем перетащите видео сюда"
+                    : "Перетащите видео лекции сюда или кликните для выбора"}
+                </Text>
+              </Dropzone>
+            ) : (
+              <Stack gap="sm">
+                <Group align="flex-end" gap="sm">
+                  <TextInput
+                    label="Ссылка на YouTube"
+                    placeholder="https://www.youtube.com/watch?v=..."
+                    value={youtubeUrl}
+                    onChange={(e) => {
+                      setYoutubeUrl(e.currentTarget.value);
+                      setLinkInfo(null); // url changed → previous preview no longer applies
+                    }}
+                    onKeyDown={(e) => e.key === "Enter" && handleCheckLink()}
+                    disabled={submittingLink || !canUpload}
+                    style={{ flex: 1 }}
+                  />
+                  <Button
+                    variant="light"
+                    onClick={handleCheckLink}
+                    loading={checkingLink}
+                    disabled={!canUpload || !youtubeUrl.trim()}
+                  >
+                    Проверить
+                  </Button>
+                </Group>
+
+                {linkInfo && (
+                  <Card withBorder>
+                    <Group justify="space-between" align="flex-start" wrap="nowrap">
+                      <div>
+                        <Text fw={600}>{linkInfo.title || "Без названия"}</Text>
+                        <Text size="xs" c="dimmed">
+                          {linkInfo.uploader ? `${linkInfo.uploader} · ` : ""}
+                          длительность {formatDuration(linkInfo.duration)}
+                        </Text>
+                        {linkInfo.duration != null && linkInfo.duration < 120 && (
+                          <Text size="xs" c="orange" mt={4}>
+                            Это короткое видео — точно лекция, а не реклама/превью?
+                          </Text>
+                        )}
+                      </div>
+                      <Button
+                        onClick={handleYoutubeSubmit}
+                        loading={submittingLink}
+                        disabled={!topicId}
+                      >
+                        Добавить
+                      </Button>
+                    </Group>
+                  </Card>
+                )}
+              </Stack>
+            )}
 
             {uploading && (
               <Card withBorder>
