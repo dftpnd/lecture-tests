@@ -23,6 +23,14 @@ export interface Progress {
   mastery_pct: number;
 }
 
+export interface UserProgressSummary {
+  name: string;
+  attempts: number;
+  lectures_started: number;
+  avg_mastery_pct: number;
+  created_at: string;
+}
+
 export interface AnswerDetail {
   question: string;
   options: string[];
@@ -74,11 +82,19 @@ function putWithProgress(url: string, file: File, onProgress: (pct: number) => v
 }
 
 export const api = {
-  login: (name: string) =>
+  users: () => fetch(`${BASE}/users`).then((r) => json<UserProgressSummary[]>(r)),
+
+  // Before asking for a password: is the name new, password-protected, or needs setup?
+  userStatus: (name: string) =>
+    fetch(`${BASE}/users/check?name=${encodeURIComponent(name)}`).then((r) =>
+      json<{ exists: boolean; has_password: boolean }>(r),
+    ),
+
+  login: (name: string, password: string) =>
     fetch(`${BASE}/users`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name }),
+      body: JSON.stringify({ name, password }),
     }).then(json),
 
   // 1. get presigned URL  2. PUT video to MinIO (with progress)  3. register lecture.

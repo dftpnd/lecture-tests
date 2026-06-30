@@ -20,6 +20,8 @@ class User(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(100), unique=True, index=True)
+    # NULL = registered before passwords existed; set on next login (migration).
+    password_hash: Mapped[str | None] = mapped_column(String(200))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     attempts: Mapped[list["Attempt"]] = relationship(back_populates="user")

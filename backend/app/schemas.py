@@ -6,6 +6,14 @@ from pydantic import BaseModel
 # --- Users ---
 class UserIn(BaseModel):
     name: str
+    password: str
+
+
+class UserStatus(BaseModel):
+    """What the login form needs to know before asking for a password."""
+
+    exists: bool        # is this name already registered?
+    has_password: bool  # does it already have a password (vs. needs to set one)?
 
 
 class UserOut(BaseModel):
@@ -14,6 +22,16 @@ class UserOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class UserProgressSummary(BaseModel):
+    """One row of the users-and-progress overview."""
+
+    name: str
+    attempts: int            # total attempts across all lectures
+    lectures_started: int    # distinct lectures the user has attempted
+    avg_mastery_pct: float   # mean best-mastery over the lectures they started
+    created_at: datetime
 
 
 # --- Lectures ---
