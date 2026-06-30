@@ -1,67 +1,65 @@
 #!/usr/bin/env bash
-# Build (and optionally push/import) the api and frontend images.
+# Build (and import/push) the project images, each with its own semver tag.
 #
-#   TAG        image tag                          (default: latest)
-#   REGISTRY   registry prefix, e.g. ghcr.io/me   (default: empty = local only)
-#   IMPORT     k3s | microk8s | ""                import into a single-node cluster
+# Images are versioned INDEPENDENTLY — bump only what changed:
+#   api       backend Dockerfile          (FastAPI)
+#   worker    backend Dockerfile.worker   (CUDA + faster-whisper)
+#   frontend  frontend Dockerfile         (React/nginx)
 #
-# Examples:
-#   ./scripts/build.sh                              # build local images
-#   REGISTRY=ghcr.io/mgu TAG=v1 ./scripts/build.sh  # build + push
-#   IMPORT=k3s ./scripts/build.sh                   # build + import into k3s containerd
+# Usage:
+#   ./scripts/build.sh api=1.1.0                   # build+import just api 1.1.0
+#   ./scripts/build.sh api=1.1.0 frontend=1.0.0    # several at once
+#   IMPORT= ./scripts/build.sh api=1.1.0           # build only, skip import
+#   REGISTRY=ghcr.io/mgu ./scripts/build.sh api=1.1.0   # also push
+#
+# IMPORT (how to load into the cluster's container runtime):
+#   containerd  (default)  sudo ctr -n k8s.io images import   # kubeadm/k3s node here
+#   k3s | microk8s         their respective import commands
+#   ""                     don't import (e.g. when REGISTRY pushes instead)
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-TAG="${TAG:-latest}"
 REGISTRY="${REGISTRY:-}"
-IMPORT="${IMPORT:-}"
-
+IMPORT="${IMPORT-containerd}"   # note: ${VAR-default} so `IMPORT=` means empty
 PREFIX=""
 [[ -n "$REGISTRY" ]] && PREFIX="${REGISTRY%/}/"
 
-API_IMG="${PREFIX}lecture-tests-api:${TAG}"
-FE_IMG="${PREFIX}lecture-tests-frontend:${TAG}"
+[[ $# -gt 0 ]] || { echo "usage: $0 <component>=<version> [...]  (component: api|worker|frontend)" >&2; exit 1; }
 
-echo ">> building $API_IMG"
-docker build -t "$API_IMG" ./backend
+build_one() {
+  local name="$1" ver="$2" img
+  img="${PREFIX}lecture-tests-${name}:${ver}"
+  case "$name" in
+    api)      echo ">> building $img"; docker build -t "$img" ./backend ;;
+    worker)   echo ">> building $img"; docker build -f backend/Dockerfile.worker -t "$img" ./backend ;;
+    frontend) echo ">> building $img"; docker build -t "$img" ./frontend ;;
+    *) echo "unknown component '$name' (api|worker|frontend)" >&2; exit 1 ;;
+  esac
 
-echo ">> building $FE_IMG"
-docker build -t "$FE_IMG" ./frontend
+  if [[ -n "$REGISTRY" ]]; then
+    echo ">> pushing $img"; docker push "$img"
+  fi
 
-if [[ -n "$REGISTRY" ]]; then
-  echo ">> pushing to $REGISTRY"
-  docker push "$API_IMG"
-  docker push "$FE_IMG"
-fi
+  case "$IMPORT" in
+    containerd) docker save "$img" | sudo ctr -n k8s.io images import - ;;
+    k3s)        docker save "$img" | sudo k3s ctr images import - ;;
+    microk8s)   docker save "$img" | microk8s ctr image import - ;;
+    "")         ;;
+    *) echo "unknown IMPORT='$IMPORT' (containerd|k3s|microk8s|'')" >&2; exit 1 ;;
+  esac
+  echo "  done: $img"
+}
 
-case "$IMPORT" in
-  k3s)
-    echo ">> importing into k3s containerd"
-    for img in "$API_IMG" "$FE_IMG"; do
-      docker save "$img" | sudo k3s ctr images import -
-    done
-    ;;
-  microk8s)
-    echo ">> importing into microk8s"
-    for img in "$API_IMG" "$FE_IMG"; do
-      docker save "$img" | microk8s ctr image import -
-    done
-    ;;
-  "")
-    ;;
-  *)
-    echo "unknown IMPORT='$IMPORT' (use k3s|microk8s)" >&2
-    exit 1
-    ;;
-esac
+declare -a SETS=()
+for arg in "$@"; do
+  [[ "$arg" == *=* ]] || { echo "bad arg '$arg' (expected name=version)" >&2; exit 1; }
+  name="${arg%%=*}"; ver="${arg#*=}"
+  build_one "$name" "$ver"
+  SETS+=("--set images.${name}.tag=${ver}")
+done
 
 echo
-echo "Done. Images:"
-echo "  $API_IMG"
-echo "  $FE_IMG"
-echo
-echo "Install/upgrade:"
-echo "  helm upgrade -i lt helm/lecture-tests \\"
-[[ -n "$REGISTRY" ]] && echo "    --set images.api.repository=${PREFIX}lecture-tests-api --set images.frontend.repository=${PREFIX}lecture-tests-frontend \\"
-echo "    --set images.api.tag=${TAG} --set images.frontend.tag=${TAG}"
+echo "Deploy:"
+echo "  helm upgrade lt helm/lecture-tests -n lectures --reuse-values \\"
+echo "    ${SETS[*]} --wait"

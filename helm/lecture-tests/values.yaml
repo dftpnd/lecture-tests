@@ -1,16 +1,17 @@
-# Images — build & push these, then set repository/tag.
+# Images — each is versioned independently with semver (bump only what changed).
+# Build with: ./scripts/build.sh api=1.1.0   (then helm upgrade --set images.api.tag=1.1.0)
 images:
   api:
     repository: lecture-tests-api
-    tag: lock
+    tag: 1.0.0
     pullPolicy: IfNotPresent
   worker:
     repository: lecture-tests-worker
-    tag: gpu3
+    tag: 1.0.0
     pullPolicy: IfNotPresent
   frontend:
     repository: lecture-tests-frontend
-    tag: q50
+    tag: 1.0.0
     pullPolicy: IfNotPresent
 
 # vLLM is reused from the existing cluster deployment — point at its service/URL.
