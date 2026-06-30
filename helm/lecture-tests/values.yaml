@@ -3,7 +3,7 @@
 images:
   api:
     repository: lecture-tests-api
-    tag: 1.8.1
+    tag: 1.8.4
     pullPolicy: IfNotPresent
   worker:
     repository: lecture-tests-worker

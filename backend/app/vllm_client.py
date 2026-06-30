@@ -118,6 +118,37 @@ def _windows(text: str, n_chunks: int, size: int) -> list[str]:
     return [text[int(i * step) : int(i * step) + size] for i in range(n_chunks)]
 
 
+# The prompt forbids referring back to the source, but the model still slips
+# (~1 in 10 questions). This deterministic filter drops any question that leaks a
+# source reference, so such questions can never reach a user. Phrases here are
+# unambiguous references ("во фрагменте", "согласно описанию"); a bare "в тексте"
+# is left alone because it legitimately means "within a text" in many questions.
+_SOURCE_REF_RE = re.compile(
+    r"фрагмент"
+    r"|в\s+лекции"
+    r"|в\s+(?:данном|приведённом|приведенном|этом|указанном)\s+(?:тексте|отрывке|материале)"
+    r"|согласно\s+(?:тексту|описанию|лекции|фрагменту|материалу)"
+    r"|по\s+мнению\s+автора"
+    r"|как\s+сказано\s+(?:выше|в\s+тексте)"
+    r"|упоминается\s+в\s+тексте"
+    r"|упомянут\w*\s+в\s+тексте"
+    r"|описанн\w+\s+в\s+(?:тексте|лекции|материале)"
+    r"|в\s+тексте\s+как\s+пример"
+    # References to the lecture/speaker/seminar as the source. Qualified so that
+    # legitimate subjects survive ("автор библиотеки", "ведущий инструмент").
+    r"|автор\w*\s+(?:лекци|семинар|доклад|видео|материал|курс)"
+    r"|по\s+словам\s+автор"
+    r"|лектор|докладчик|выступающ\w+"
+    r"|на\s+(?:этом\s+|данном\s+|нашем\s+|прошлом\s+)?(?:семинаре|лекции|занятии|вебинаре)"
+    r"|в\s+(?:этом\s+|данном\s+|нашем\s+)?(?:семинаре|докладе|вебинаре|видео|занятии)",
+    re.IGNORECASE,
+)
+
+
+def _refers_to_source(question: str) -> bool:
+    return bool(_SOURCE_REF_RE.search(question))
+
+
 _QUIZ_SYS = (
     "Ты составляешь тесты по лекциям на русском языке. "
     "Каждый вопрос — с 4 вариантами ответа, ровно один верный. "
@@ -158,6 +189,88 @@ async def _quiz_chunk(fragment: str, k: int) -> list[dict]:
         return []
 
 
+# LLM-judge pass. The regex above only catches phrasings we anticipated; this
+# second reviewer (same model, separate call) reads each question and decides
+# whether it is genuinely self-contained — understandable to someone who never
+# saw the lecture — and free of any reference to the source. Questions it rejects
+# are dropped. It runs in batches (parallel) to keep latency bounded.
+_REVIEW_SYS = (
+    "Ты — строгий редактор тестовых вопросов. Для каждого вопроса реши, можно ли "
+    "показать его студенту, который НЕ видел исходную лекцию.\n"
+    "Вопрос ГОДЕН только если выполнено ВСЁ:\n"
+    "1) он самодостаточный — понятен сам по себе, без доступа к лекции, тексту, "
+    "слайдам, фрагменту или иному контексту;\n"
+    "2) он не ссылается на источник — никаких отсылок к «лекции», «тексту», "
+    "«фрагменту», «семинару», «видео», «материалу», «автору», «лектору», "
+    "«докладчику», «как сказано выше» и т.п.;\n"
+    "3) это цельный, осмысленный вопрос по сути темы с конкретным ответом.\n"
+    "Если хоть одно условие нарушено — вопрос НЕ годен."
+)
+
+_REVIEW_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "verdicts": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "index": {"type": "integer"},
+                    "ok": {"type": "boolean"},
+                },
+                "required": ["index", "ok"],
+            },
+        }
+    },
+    "required": ["verdicts"],
+}
+
+_REVIEW_BATCH = 10  # questions per judge call (keeps each call within context)
+
+
+async def _review_batch(batch: list[dict]) -> list[bool]:
+    """Judge one batch; returns a keep-flag per question. Fail-open: on any error
+    (or an index the judge forgot) the question is kept, so a judge hiccup can't
+    empty the quiz — the regex pre-filter is still the hard guarantee."""
+    listing = "\n".join(f"{i}. {q['question']}" for i, q in enumerate(batch))
+    try:
+        raw = await _chat(
+            [
+                {"role": "system", "content": _REVIEW_SYS},
+                {
+                    "role": "user",
+                    "content": (
+                        "Оцени каждый вопрос из списка. Верни для каждого его номер "
+                        "(index) и ok=true, если вопрос годен, иначе ok=false.\n\n"
+                        + listing
+                    ),
+                },
+            ],
+            response_schema=_REVIEW_SCHEMA,
+            max_tokens=512,
+        )
+        verdicts = json.loads(_strip_think(raw))["verdicts"]
+    except Exception as exc:  # noqa: BLE001 — never let the judge kill generation
+        print(f"review batch failed: {exc}")
+        return [True] * len(batch)
+
+    keep = [True] * len(batch)  # default-keep any index the judge omitted
+    for v in verdicts:
+        i = v.get("index")
+        if isinstance(i, int) and 0 <= i < len(batch):
+            keep[i] = bool(v.get("ok", True))
+    return keep
+
+
+async def _review_questions(questions: list[dict]) -> list[dict]:
+    """Keep only questions the LLM judge accepts as self-contained and source-free."""
+    if not questions:
+        return questions
+    batches = [questions[i : i + _REVIEW_BATCH] for i in range(0, len(questions), _REVIEW_BATCH)]
+    flags = await asyncio.gather(*(_review_batch(b) for b in batches))
+    return [q for batch, keep in zip(batches, flags) for q, k in zip(batch, keep) if k]
+
+
 async def generate_quiz(transcript: str, summary: str, max_n: int = _QUIZ_MAX) -> list[dict]:
     """Generate as many MCQs as the lecture warrants (capped at max_n), drawn from
     the whole transcript rather than just its start.
@@ -178,7 +291,15 @@ async def generate_quiz(transcript: str, summary: str, max_n: int = _QUIZ_MAX) -
     for chunk in results:
         for q in chunk:
             key = q["question"].strip().lower()
-            if key and key not in seen:
-                seen.add(key)
-                questions.append(q)
+            if not key or key in seen:
+                continue
+            # Prompting alone doesn't stop the model from referring back to the
+            # source; drop those questions outright so users never see them.
+            if _refers_to_source(q["question"]):
+                continue
+            seen.add(key)
+            questions.append(q)
+
+    # Second pass: an LLM judge drops anything not genuinely self-contained.
+    questions = await _review_questions(questions)
     return questions[:max_n]
