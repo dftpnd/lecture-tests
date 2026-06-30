@@ -23,6 +23,24 @@ export interface Progress {
   mastery_pct: number;
 }
 
+export interface AnswerDetail {
+  question: string;
+  options: string[];
+  user_answer: number;
+  correct: number;
+  is_correct: boolean;
+}
+
+export interface AttemptHistory {
+  id: number;
+  lecture_id: number;
+  lecture_title: string;
+  score: number;
+  total: number;
+  details: AnswerDetail[];
+  created_at: string;
+}
+
 async function json<T>(r: Response): Promise<T> {
   if (!r.ok) throw new Error(await r.text());
   return r.json();
@@ -85,4 +103,10 @@ export const api = {
 
   progress: (name: string) =>
     fetch(`${BASE}/users/${encodeURIComponent(name)}/progress`).then((r) => json<Progress[]>(r)),
+
+  attempts: (name: string, lectureId?: number) =>
+    fetch(
+      `${BASE}/users/${encodeURIComponent(name)}/attempts` +
+        (lectureId != null ? `?lecture_id=${lectureId}` : ""),
+    ).then((r) => json<AttemptHistory[]>(r)),
 };

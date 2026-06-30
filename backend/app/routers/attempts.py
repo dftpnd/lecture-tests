@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db import get_session
 from app.models import Attempt, Lecture, User
 from app.routers.users import get_or_create_user
-from app.schemas import AttemptIn, AttemptOut, LectureProgress
+from app.schemas import AttemptHistory, AttemptIn, AttemptOut, LectureProgress
 
 router = APIRouter(tags=["attempts"])
 
@@ -58,3 +58,38 @@ async def user_progress(name: str, session: AsyncSession = Depends(get_session))
             )
         )
     return out
+
+
+@router.get("/users/{name}/attempts", response_model=list[AttemptHistory])
+async def user_attempts(
+    name: str,
+    lecture_id: int | None = None,
+    session: AsyncSession = Depends(get_session),
+):
+    """Full per-question history for review (newest first), optionally one lecture."""
+    user = (await session.execute(select(User).where(User.name == name.strip()))).scalar_one_or_none()
+    if user is None:
+        raise HTTPException(404, "user not found")
+
+    query = (
+        select(Attempt, Lecture.title)
+        .join(Lecture, Attempt.lecture_id == Lecture.id)
+        .where(Attempt.user_id == user.id)
+        .order_by(Attempt.created_at.desc())
+    )
+    if lecture_id is not None:
+        query = query.where(Attempt.lecture_id == lecture_id)
+
+    rows = (await session.execute(query)).all()
+    return [
+        AttemptHistory(
+            id=a.id,
+            lecture_id=a.lecture_id,
+            lecture_title=title,
+            score=a.score,
+            total=a.total,
+            details=a.details_json,
+            created_at=a.created_at,
+        )
+        for a, title in rows
+    ]

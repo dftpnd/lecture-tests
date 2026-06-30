@@ -16,6 +16,7 @@ import { notifications } from "@mantine/notifications";
 import { Link } from "react-router-dom";
 import { api, type Lecture, type Question, type Progress as Prog } from "./api";
 import { Quiz } from "./Quiz";
+import { History } from "./History";
 import { useLectures } from "./useLectures";
 
 export function TestPage() {
@@ -24,6 +25,7 @@ export function TestPage() {
   const { lectures, refresh } = useLectures();
   const [progress, setProgress] = useState<Prog[]>([]);
   const [activeQuiz, setActiveQuiz] = useState<{ lecture: Lecture; questions: Question[] } | null>(null);
+  const [historyLecture, setHistoryLecture] = useState<Lecture | null>(null);
   const [generating, setGenerating] = useState<number | null>(null);
 
   useEffect(() => {
@@ -115,9 +117,16 @@ export function TestPage() {
                         </Text>
                       )}
                     </div>
-                    <Button disabled={!ready} loading={generating === lec.id} onClick={() => startTest(lec)}>
-                      Начать тест
-                    </Button>
+                    <Group gap="xs">
+                      {p && p.attempts > 0 && (
+                        <Button variant="light" onClick={() => setHistoryLecture(lec)}>
+                          История
+                        </Button>
+                      )}
+                      <Button disabled={!ready} loading={generating === lec.id} onClick={() => startTest(lec)}>
+                        Начать тест
+                      </Button>
+                    </Group>
                   </Group>
                 </Card>
               );
@@ -133,6 +142,14 @@ export function TestPage() {
           userName={name}
           onClose={() => setActiveQuiz(null)}
           onSubmitted={refresh}
+        />
+      )}
+
+      {historyLecture && (
+        <History
+          lecture={historyLecture}
+          userName={name}
+          onClose={() => setHistoryLecture(null)}
         />
       )}
     </AppShell>

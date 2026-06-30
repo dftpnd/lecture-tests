@@ -85,3 +85,15 @@ class LectureProgress(BaseModel):
     best_score: int | None
     last_score: int | None
     mastery_pct: float
+
+
+class AttemptHistory(BaseModel):
+    """A past attempt with its full per-question breakdown for review."""
+
+    id: int
+    lecture_id: int
+    lecture_title: str
+    score: int
+    total: int
+    details: list[AnswerDetail]
+    created_at: datetime
