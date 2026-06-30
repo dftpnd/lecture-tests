@@ -20,6 +20,11 @@ import { useLectures } from "./useLectures";
 import { useTopics } from "./useTopics";
 import { PwaInstall } from "./PwaInstall";
 import { PageShell } from "./PageShell";
+import { canUploadVideos } from "./permissions";
+
+// Hardcoded ordering/visibility tweaks for the topic list.
+const PINNED_TOPIC = "LLM инженер (гигаскул)"; // always shown first
+const UPLOADERS_ONLY_TOPIC = "для тест"; // only visible to users who can upload videos
 
 export function TestPage() {
   const [name, setName] = useState(localStorage.getItem("user") ?? "");
@@ -81,8 +86,17 @@ export function TestPage() {
 
   const masteryByLecture = new Map(progress.map((p) => [p.lecture_id, p]));
 
-  // Group lectures by topic, ordered the same way topics come from the API (by name).
-  const orderedTopics = topics.filter((t) => lectures.some((l) => l.topic_id === t.id));
+  // Group lectures by topic. "для тест" is only for users who may upload videos;
+  // "LLM инженер (гигаскул)" is pinned to the top, the rest keep API order (by name).
+  const canUpload = canUploadVideos(name);
+  const orderedTopics = topics
+    .filter((t) => lectures.some((l) => l.topic_id === t.id))
+    .filter((t) => canUpload || t.name !== UPLOADERS_ONLY_TOPIC)
+    .sort((a, b) => {
+      if (a.name === PINNED_TOPIC) return -1;
+      if (b.name === PINNED_TOPIC) return 1;
+      return 0;
+    });
   const orphanLectures = lectures.filter((l) => !topics.some((t) => t.id === l.topic_id));
 
   function renderLectureCard(lec: Lecture) {

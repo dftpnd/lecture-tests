@@ -21,11 +21,9 @@ import { api } from "./api";
 import { useLectures } from "./useLectures";
 import { useTopics } from "./useTopics";
 import { PageShell } from "./PageShell";
+import { canUploadVideos } from "./permissions";
 
 const statusColor = (s: string) => (s === "done" ? "green" : s === "failed" ? "red" : "yellow");
-
-// Mirrors the backend allowlist (upload_allowed_users); the backend is the real gate.
-const UPLOAD_ALLOWED = ["dft", "li", "Гоша"];
 
 export function UploadPage() {
   const { lectures, refresh } = useLectures();
@@ -48,7 +46,7 @@ export function UploadPage() {
   } | null>(null);
 
   const userName = localStorage.getItem("user") ?? "";
-  const canUpload = UPLOAD_ALLOWED.includes(userName.trim());
+  const canUpload = canUploadVideos(userName);
   const topicName = new Map(topics.map((t) => [t.id, t.name]));
 
   async function handleCreateTopic() {
