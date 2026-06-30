@@ -13,7 +13,7 @@ from app.config import settings
 from app.db import SessionLocal
 from app.models import Lecture
 from app.storage import download, upload
-from app.vllm_client import summarize
+from app.vllm_client import generate_title, summarize
 
 # faster-whisper is heavy; import lazily so the API image need not load CUDA.
 _whisper_model = None
@@ -76,8 +76,14 @@ async def process_video(ctx: dict, lecture_id: int, video_key: str) -> None:
 
             await _set_status(lecture_id, "structuring", transcript_path=transcript_key)
             summary = await summarize(transcript)
+            # Derive a short topic title from the summary so lectures/tests get
+            # meaningful names instead of the uploaded filename.
+            title = await generate_title(summary)
 
-            await _set_status(lecture_id, "done", summary=summary)
+            done_fields = {"summary": summary}
+            if title:
+                done_fields["title"] = title
+            await _set_status(lecture_id, "done", **done_fields)
     except Exception as exc:  # noqa: BLE001 — surface failure to the UI
         await _set_status(lecture_id, "failed", error=str(exc))
         raise

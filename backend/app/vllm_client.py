@@ -78,6 +78,28 @@ async def summarize(transcript: str) -> str:
     return _strip_think(content)
 
 
+async def generate_title(summary: str) -> str:
+    """Short Russian lecture title derived from the summary (for the UI/test name)."""
+    content = await _chat(
+        [
+            {"role": "system", "content": "Ты придумываешь короткие заголовки лекций на русском языке."},
+            {
+                "role": "user",
+                "content": (
+                    "По конспекту придумай короткий заголовок лекции — 3–7 слов, "
+                    "отражающий её тему. Ответь только заголовком: без кавычек, "
+                    "пояснений и точки в конце.\n\n"
+                    f"Конспект:\n{summary[:2000]}"
+                ),
+            },
+        ],
+        max_tokens=64,
+    )
+    cleaned = _strip_think(content).strip()
+    first = cleaned.splitlines()[0] if cleaned else ""
+    return first.strip(" \"«».").strip()[:200]
+
+
 async def generate_quiz(transcript: str, summary: str, n: int = 20) -> list[dict]:
     """Generate N fresh multiple-choice questions in Russian from the lecture.
 

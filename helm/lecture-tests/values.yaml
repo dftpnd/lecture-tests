@@ -6,7 +6,7 @@ images:
     pullPolicy: IfNotPresent
   worker:
     repository: lecture-tests-worker
-    tag: gpu2
+    tag: gpu3
     pullPolicy: IfNotPresent
   frontend:
     repository: lecture-tests-frontend
