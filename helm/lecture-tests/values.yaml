@@ -11,7 +11,7 @@ images:
     pullPolicy: IfNotPresent
   frontend:
     repository: lecture-tests-frontend
-    tag: 1.10.7
+    tag: 1.10.8
     pullPolicy: IfNotPresent
 
 # vLLM is reused from the existing cluster deployment — point at its service/URL.
