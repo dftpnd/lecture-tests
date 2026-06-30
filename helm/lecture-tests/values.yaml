@@ -2,7 +2,7 @@
 images:
   api:
     repository: lecture-tests-api
-    tag: q50
+    tag: cache
     pullPolicy: IfNotPresent
   worker:
     repository: lecture-tests-worker

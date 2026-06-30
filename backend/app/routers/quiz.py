@@ -15,16 +15,21 @@ router = APIRouter(prefix="/quiz", tags=["quiz"])
 
 @router.post("/{lecture_id}", response_model=Quiz)
 async def make_quiz(lecture_id: int, session: AsyncSession = Depends(get_session)):
-    """Generate fresh MCQs on demand when the user starts a test.
+    """Return the lecture's quiz, generating + caching it on the first request.
 
-    Count is chosen by the model from the lecture's content (capped at 50);
-    questions are drawn from the whole lecture, not just its start.
+    The set is generated once (count chosen by the model from the whole lecture,
+    capped at 50) and stored on the lecture, so every later user gets the same
+    pre-generated set instead of triggering a fresh generation.
     """
     lecture = await session.get(Lecture, lecture_id)
     if lecture is None:
         raise HTTPException(404, "lecture not found")
     if lecture.status != "done" or not lecture.transcript_path:
         raise HTTPException(409, "lecture is not ready yet")
+
+    # Serve the cached set if one was already generated.
+    if lecture.questions_json:
+        return Quiz(lecture_id=lecture_id, questions=[Question(**q) for q in lecture.questions_json])
 
     with tempfile.TemporaryDirectory() as tmp:
         path = os.path.join(tmp, "t.txt")
@@ -34,4 +39,7 @@ async def make_quiz(lecture_id: int, session: AsyncSession = Depends(get_session
     questions = await generate_quiz(transcript, lecture.summary or "")
     if not questions:
         raise HTTPException(502, "не удалось сгенерировать вопросы")
+
+    lecture.questions_json = questions
+    await session.commit()
     return Quiz(lecture_id=lecture_id, questions=[Question(**q) for q in questions])
