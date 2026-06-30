@@ -60,7 +60,9 @@ metadata:
   labels: {{- include "lt.labels" . | nindent 4 }}
   annotations:
     "helm.sh/hook": post-install,post-upgrade
-    "helm.sh/hook-delete-policy": hook-succeeded
+    # before-hook-creation deletes the prior (Completed) Job so upgrades don't
+    # time out waiting on a stale, immutable hook Job.
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
 spec:
   backoffLimit: 5
   template:

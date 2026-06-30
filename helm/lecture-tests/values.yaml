@@ -2,15 +2,15 @@
 images:
   api:
     repository: lecture-tests-api
-    tag: latest
+    tag: hist
     pullPolicy: IfNotPresent
   worker:
     repository: lecture-tests-worker
-    tag: gpu
+    tag: gpu2
     pullPolicy: IfNotPresent
   frontend:
     repository: lecture-tests-frontend
-    tag: latest
+    tag: hist
     pullPolicy: IfNotPresent
 
 # vLLM is reused from the existing cluster deployment — point at its service/URL.
