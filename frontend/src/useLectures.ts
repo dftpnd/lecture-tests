@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
-import { api, type Lecture } from "./api";
+import { type Lecture } from "./api";
+import { getLectures } from "./offline/cachedApi";
 
 /** Shared lecture list with polling while any lecture is still processing. */
 export function useLectures() {
   const [lectures, setLectures] = useState<Lecture[]>([]);
 
   async function refresh() {
-    setLectures(await api.lectures());
+    setLectures(await getLectures());
   }
 
   useEffect(() => {

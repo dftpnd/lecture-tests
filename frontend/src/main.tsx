@@ -3,12 +3,15 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import "./index.css";
 import { App } from "./App";
+import { PullToRefresh } from "./PullToRefresh";
 import { Toaster } from "@/components/ui/sonner";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <BrowserRouter>
-      <App />
+      <PullToRefresh>
+        <App />
+      </PullToRefresh>
     </BrowserRouter>
     <Toaster />
   </React.StrictMode>,

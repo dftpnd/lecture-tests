@@ -2,6 +2,10 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Link, useNavigate } from "react-router-dom";
 import { api, type Lecture, type Progress as Prog } from "./api";
+import { getProgress } from "./offline/cachedApi";
+import { getAnyCachedQuizVersion } from "./offline/db";
+import { useTopicSync } from "./offline/useTopicSync";
+import { TopicSyncToggle } from "./offline/TopicSyncToggle";
 import { History } from "./History";
 import { LoginForm } from "./LoginForm";
 import { useLectures } from "./useLectures";
@@ -26,16 +30,26 @@ export function TestPage() {
   const [progress, setProgress] = useState<Prog[]>([]);
   const [historyLecture, setHistoryLecture] = useState<Lecture | null>(null);
   const [generating, setGenerating] = useState<number | null>(null);
+  const { synced, syncing, toggle } = useTopicSync();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (loggedIn && name) api.progress(name).then(setProgress).catch(() => setProgress([]));
+    if (loggedIn && name) getProgress(name).then(setProgress).catch(() => setProgress([]));
   }, [loggedIn, name, lectures]);
 
   async function startTest(lec: Lecture) {
     setGenerating(lec.id);
     const tid = toast.loading("Готовлю тест…");
+    // Generation needs the server; offline, open a downloaded generation directly.
+    async function openCached(): Promise<boolean> {
+      const ver = await getAnyCachedQuizVersion(lec.id);
+      if (ver == null) return false;
+      toast.success("Офлайн-версия теста", { id: tid, duration: 2000 });
+      navigate(`/t/${lec.id}/${ver}`);
+      return true;
+    }
     try {
+      if (!navigator.onLine && (await openCached())) return;
       const quiz = await api.quiz(lec.id, name);
       // Reuses a set you haven't taken yet; generates a fresh one if you've done them all.
       toast.success(quiz.cached ? "Готовый набор вопросов" : "Новый набор вопросов сгенерирован", {
@@ -45,6 +59,8 @@ export function TestPage() {
       // Open the test at its own shareable, versioned URL instead of a modal.
       navigate(`/t/${quiz.lecture_id}/${quiz.version}`);
     } catch (e) {
+      // Network failed mid-request: fall back to a downloaded generation if we have one.
+      if (await openCached()) return;
       toast.error(`Не удалось открыть тест: ${e}`, { id: tid, duration: 4000 });
     } finally {
       setGenerating(null);
@@ -119,7 +135,7 @@ export function TestPage() {
 
   return (
     <PageShell
-      title="Лекции → Тесты"
+      title="Темы → Тесты"
       actions={
         <>
           <Button asChild variant="ghost" size="sm">
@@ -146,7 +162,14 @@ export function TestPage() {
         )}
         {orderedTopics.map((topic) => (
           <div key={topic.id} className="flex flex-col gap-3">
-            <h3 className="text-sm font-semibold text-muted-foreground">{topic.name}</h3>
+            <div className="flex items-center gap-1">
+              <h3 className="text-sm font-semibold text-muted-foreground">{topic.name}</h3>
+              <TopicSyncToggle
+                subscribed={synced.includes(topic.id)}
+                syncing={syncing.includes(topic.id)}
+                onToggle={() => toggle(topic.id)}
+              />
+            </div>
             {lectures.filter((l) => l.topic_id === topic.id).map((lec) => renderLectureCard(lec))}
           </div>
         ))}

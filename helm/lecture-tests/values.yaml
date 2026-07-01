@@ -3,7 +3,7 @@
 images:
   api:
     repository: lecture-tests-api
-    tag: 1.9.3
+    tag: 1.19.0
     pullPolicy: IfNotPresent
   worker:
     repository: lecture-tests-worker
@@ -11,7 +11,7 @@ images:
     pullPolicy: IfNotPresent
   frontend:
     repository: lecture-tests-frontend
-    tag: 1.12.0
+    tag: 1.22.0
     pullPolicy: IfNotPresent
 
 # vLLM is reused from the existing cluster deployment — point at its service/URL.

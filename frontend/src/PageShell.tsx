@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
+import { ServerStatus } from "./offline/ServerStatus";
 
 /**
  * Shared app layout: a sticky top bar of fixed height with the page title and
@@ -24,27 +25,33 @@ export function PageShell({
         <div className="mx-auto flex h-14 max-w-3xl items-center justify-between gap-2 px-4 [padding-left:max(1rem,env(safe-area-inset-left))] [padding-right:max(1rem,env(safe-area-inset-right))]">
           <h1 className="min-w-0 truncate text-base font-semibold sm:text-lg">{title}</h1>
 
-          {actions && (
-            <>
-              {/* Desktop: actions inline in the bar. */}
-              <div className="hidden items-center gap-2 sm:flex">{actions}</div>
+          <div className="flex shrink-0 items-center gap-2">
+            {/* Connection indicator: always visible on every page (and on phones,
+                where the actions collapse into the menu). */}
+            <ServerStatus />
 
-              {/* Mobile: actions tucked into a slide-in menu. */}
-              <Sheet>
-                <SheetTrigger asChild>
-                  <Button variant="ghost" size="icon" className="sm:hidden" aria-label="Меню">
-                    <Menu />
-                  </Button>
-                </SheetTrigger>
-                <SheetContent>
-                  <SheetTitle>Меню</SheetTitle>
-                  <div className="mt-4 flex flex-col items-stretch gap-2 [&_a]:w-full [&_button]:w-full">
-                    {actions}
-                  </div>
-                </SheetContent>
-              </Sheet>
-            </>
-          )}
+            {actions && (
+              <>
+                {/* Desktop: actions inline in the bar. */}
+                <div className="hidden items-center gap-2 sm:flex">{actions}</div>
+
+                {/* Mobile: actions tucked into a slide-in menu. */}
+                <Sheet>
+                  <SheetTrigger asChild>
+                    <Button variant="ghost" size="icon" className="sm:hidden" aria-label="Меню">
+                      <Menu className="text-brand-accent" />
+                    </Button>
+                  </SheetTrigger>
+                  <SheetContent>
+                    <SheetTitle>Меню</SheetTitle>
+                    <div className="mt-4 flex flex-col items-stretch gap-2 [&_a]:w-full [&_button]:w-full">
+                      {actions}
+                    </div>
+                  </SheetContent>
+                </Sheet>
+              </>
+            )}
+          </div>
         </div>
       </header>
 

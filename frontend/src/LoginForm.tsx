@@ -77,7 +77,7 @@ export function LoginForm({
 
   return (
     <div className="mx-auto flex min-h-[100dvh] w-full max-w-sm flex-col justify-center gap-4 px-4 py-16 [padding-left:max(1rem,env(safe-area-inset-left))] [padding-right:max(1rem,env(safe-area-inset-right))]">
-      <h1 className="text-2xl font-bold">Лекции → Тесты</h1>
+      <h1 className="text-2xl font-bold">Темы → Тесты</h1>
       {intro && <p className="text-sm text-muted-foreground">{intro}</p>}
 
       {step === "name" && (

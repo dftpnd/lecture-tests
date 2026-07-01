@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
-import { api, type Topic } from "./api";
+import { type Topic } from "./api";
+import { getTopics } from "./offline/cachedApi";
 
 /** Shared topic list. */
 export function useTopics() {
   const [topics, setTopics] = useState<Topic[]>([]);
 
   async function refresh() {
-    setTopics(await api.topics());
+    setTopics(await getTopics());
   }
 
   useEffect(() => {

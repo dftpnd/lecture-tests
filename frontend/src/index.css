@@ -1,79 +1,58 @@
 @import "tailwindcss";
 
-/* Class-based dark variant kept for completeness; the app follows the OS theme
-   automatically via the prefers-color-scheme media query below (replaces
-   Mantine's defaultColorScheme="auto"). */
+/* Kept so a `.dark` scope still resolves; the app now ships a single fixed
+   dark "neon" theme (below) instead of following the OS color scheme. */
 @custom-variant dark (&:is(.dark *));
 
+/* Fixed light "panda hypno" theme. Base is white/off-white surfaces with
+   near-black text; accents come from the hypnotic panda eye — saturated blue
+   (--primary, default buttons/links/focus), lemon-yellow (--secondary,
+   secondary buttons & badges) and red (--destructive). --brand-accent is a
+   deeper yellow for standalone icons/dividers so it stays legible on white. */
 :root {
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.129 0.042 264.695);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.129 0.042 264.695);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.129 0.042 264.695);
-  --primary: oklch(0.208 0.042 265.755);
-  --primary-foreground: oklch(0.984 0.003 247.858);
-  --secondary: oklch(0.968 0.007 247.896);
-  --secondary-foreground: oklch(0.208 0.042 265.755);
-  --muted: oklch(0.968 0.007 247.896);
-  --muted-foreground: oklch(0.554 0.046 257.417);
-  --accent: oklch(0.968 0.007 247.896);
-  --accent-foreground: oklch(0.208 0.042 265.755);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.984 0.003 247.858);
-  --border: oklch(0.929 0.013 255.508);
-  --input: oklch(0.929 0.013 255.508);
-  --ring: oklch(0.704 0.04 256.788);
-}
 
-/* Dark tokens applied automatically with the OS theme, and also via an
-   explicit `.dark` class if one is ever set. */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: oklch(0.129 0.042 264.695);
-    --foreground: oklch(0.984 0.003 247.858);
-    --card: oklch(0.208 0.042 265.755);
-    --card-foreground: oklch(0.984 0.003 247.858);
-    --popover: oklch(0.208 0.042 265.755);
-    --popover-foreground: oklch(0.984 0.003 247.858);
-    --primary: oklch(0.929 0.013 255.508);
-    --primary-foreground: oklch(0.208 0.042 265.755);
-    --secondary: oklch(0.279 0.041 260.031);
-    --secondary-foreground: oklch(0.984 0.003 247.858);
-    --muted: oklch(0.279 0.041 260.031);
-    --muted-foreground: oklch(0.704 0.04 256.788);
-    --accent: oklch(0.279 0.041 260.031);
-    --accent-foreground: oklch(0.984 0.003 247.858);
-    --destructive: oklch(0.704 0.191 22.216);
-    --destructive-foreground: oklch(0.984 0.003 247.858);
-    --border: oklch(1 0 0 / 10%);
-    --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.551 0.027 264.364);
-  }
-}
+  /* --- Palette: panda body -------------------------------------------- */
+  --panda-black: #0A0A0B;      /* deep almost-black — backgrounds/text */
+  --panda-white: #F9FAFB;      /* clean light — contrast/text */
+  --panda-gray-50: #F3F4F6;
+  --panda-gray-200: #E5E7EB;
+  --panda-gray-400: #9CA3AF;   /* subdued text on dark */
+  --panda-gray-700: #374151;
+  --panda-gray-800: #1F2937;
 
-.dark {
-  --background: oklch(0.129 0.042 264.695);
-  --foreground: oklch(0.984 0.003 247.858);
-  --card: oklch(0.208 0.042 265.755);
-  --card-foreground: oklch(0.984 0.003 247.858);
-  --popover: oklch(0.208 0.042 265.755);
-  --popover-foreground: oklch(0.984 0.003 247.858);
-  --primary: oklch(0.929 0.013 255.508);
-  --primary-foreground: oklch(0.208 0.042 265.755);
-  --secondary: oklch(0.279 0.041 260.031);
-  --secondary-foreground: oklch(0.984 0.003 247.858);
-  --muted: oklch(0.279 0.041 260.031);
-  --muted-foreground: oklch(0.704 0.04 256.788);
-  --accent: oklch(0.279 0.041 260.031);
-  --accent-foreground: oklch(0.984 0.003 247.858);
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.984 0.003 247.858);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.551 0.027 264.364);
+  /* --- Palette: hypnotic eye accents --------------------------------- */
+  --hypno-blue: #0025FF;       /* saturated blue (outer ring) */
+  --hypno-blue-light: #3B82F6;
+  --hypno-blue-dark: #001C99;
+  --hypno-red: #FF003C;        /* energetic red */
+  --hypno-red-light: #EF4444;
+  --hypno-red-dark: #990024;
+  --hypno-yellow: #FFDE00;     /* lemon-yellow (center ring) */
+  --hypno-yellow-light: #FDE047;
+  --hypno-yellow-dark: #CA8A04;
+
+  /* --- Semantic (shadcn) tokens -------------------------------------- */
+  --background: var(--panda-white);
+  --foreground: var(--panda-black);
+  --card: var(--panda-white);
+  --card-foreground: var(--panda-black);
+  --popover: var(--panda-white);
+  --popover-foreground: var(--panda-black);
+  --primary: var(--hypno-blue);
+  --primary-foreground: var(--panda-white);
+  --secondary: var(--hypno-yellow);           /* yellow buttons/badges */
+  --secondary-foreground: var(--panda-black); /* dark text on yellow */
+  --muted: var(--panda-gray-50);
+  --muted-foreground: var(--panda-gray-700);
+  --accent: var(--panda-gray-200);            /* hover surface */
+  --accent-foreground: var(--panda-black);
+  --destructive: var(--hypno-red);
+  --destructive-foreground: var(--panda-white);
+  --border: var(--panda-gray-200);
+  --input: var(--panda-gray-200);
+  --ring: var(--hypno-blue-light);            /* focus glow */
+  --brand-accent: var(--hypno-yellow-dark);   /* icons/dividers on white */
 }
 
 @theme inline {
@@ -96,6 +75,29 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-brand-accent: var(--brand-accent);
+
+  /* Raw palette exposed as utilities: bg-panda-black, text-hypno-yellow, … */
+  --color-panda-black: var(--panda-black);
+  --color-panda-white: var(--panda-white);
+  --color-panda-gray-50: var(--panda-gray-50);
+  --color-panda-gray-200: var(--panda-gray-200);
+  --color-panda-gray-400: var(--panda-gray-400);
+  --color-panda-gray-700: var(--panda-gray-700);
+  --color-panda-gray-800: var(--panda-gray-800);
+  --color-hypno-blue: var(--hypno-blue);
+  --color-hypno-blue-light: var(--hypno-blue-light);
+  --color-hypno-blue-dark: var(--hypno-blue-dark);
+  --color-hypno-red: var(--hypno-red);
+  --color-hypno-red-light: var(--hypno-red-light);
+  --color-hypno-red-dark: var(--hypno-red-dark);
+  --color-hypno-yellow: var(--hypno-yellow);
+  --color-hypno-yellow-light: var(--hypno-yellow-light);
+  --color-hypno-yellow-dark: var(--hypno-yellow-dark);
+
+  /* Psychedelic neon glow (panda-eye style): shadow-hypno-blue / -red */
+  --shadow-hypno-blue: 0 0 15px rgba(0, 37, 255, 0.5);
+  --shadow-hypno-red: 0 0 15px rgba(255, 0, 60, 0.5);
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -107,10 +109,21 @@
   * {
     border-color: var(--border);
   }
+  /* Suppress the browser's own pull-to-refresh / overscroll so our custom
+     gesture (see PullToRefresh.tsx) is the only one that fires. This must sit
+     on the root scroller (html), not just body: Chrome does NOT propagate
+     overscroll-behavior from body to the viewport (unlike overflow), so in a
+     normal browser tab the native pull-to-refresh kept firing and showed a
+     white background. A standalone PWA has no native pull-to-refresh, which is
+     why the gesture already worked there. */
+  html {
+    overscroll-behavior-y: contain;
+  }
   body {
     background-color: var(--background);
     color: var(--foreground);
     -webkit-font-smoothing: antialiased;
+    overscroll-behavior-y: contain;
   }
 }
 

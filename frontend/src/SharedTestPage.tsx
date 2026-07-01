@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api, type SharedQuiz } from "./api";
+import { getQuizVersion } from "./offline/cachedApi";
 import { Quiz } from "./Quiz";
 import { LoginForm } from "./LoginForm";
 import { Button } from "@/components/ui/button";
@@ -28,8 +29,7 @@ export function SharedTestPage() {
     if (!loggedIn || !valid) return;
     setQuiz(null);
     setError("");
-    api
-      .quizVersion(lecId, ver)
+    getQuizVersion(lecId, ver)
       .then(setQuiz)
       .catch(() => setError("Тест не найден — возможно, ссылка устарела."));
   }, [loggedIn, lecId, ver, valid]);
